@@ -79,7 +79,7 @@ The app will be available at `http://localhost:3000`.
 ### 1. Configure environment
 
 ```bash
-cp .env.example .env
+cp .env.local .env
 # Edit .env — at minimum set POSTGRES_PASSWORD and any API keys you have
 ```
 
