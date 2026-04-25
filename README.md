@@ -225,7 +225,7 @@ DO injects `PORT=8080` automatically — the app reads this to configure nginx.
 ### 4. Test locally with the monolith image first
 
 ```bash
-cp .env.example .env
+cp .env.local .env
 # Fill in .env
 docker compose up --build
 # Open http://localhost:8080
