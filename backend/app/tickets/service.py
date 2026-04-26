@@ -21,6 +21,7 @@ def create_ticket(
     intake_payload: AITriageInput,
     triage_result: TriageCallResult,
     routing_result: RoutingResult,
+    voice_transcript: str | None = None,
 ) -> Ticket:
     triage: AITriageOutput = triage_result.parsed_output
     assigned_agency_uuid = (
@@ -32,6 +33,7 @@ def create_ticket(
         assigned_agency_id=assigned_agency_uuid,
         title=triage.title,
         original_description=intake_payload.description,
+        voice_transcript=voice_transcript,
         location_text=intake_payload.location_text,
         image_url=intake_payload.image_url,
         category=triage.category.value,

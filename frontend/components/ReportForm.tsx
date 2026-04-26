@@ -219,8 +219,8 @@ export default function ReportForm() {
         </button>
 
         <p style={styles.hint}>
-          Your report will be reviewed and routed to the appropriate city agency. You can track its
-          status in <a href="/dashboard/citizen">My Issues</a>.
+          Your report will be reviewed and routed to the appropriate city agency. Track its status
+          under <a href="/dashboard/citizen" style={{ color: "#1a56db" }}>My Issues</a> in the nav bar.
         </p>
       </form>
     </div>

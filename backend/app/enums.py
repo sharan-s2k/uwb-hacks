@@ -1,4 +1,8 @@
-from enum import StrEnum
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    """Backport of StrEnum for Python < 3.11."""
 
 
 class UserRole(StrEnum):

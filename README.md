@@ -137,12 +137,73 @@ docker compose down -v
 | `POSTGRES_DB`         | Yes      | Database name                             |
 | `POSTGRES_USER`       | Yes      | Database user                             |
 | `POSTGRES_PASSWORD`   | Yes      | Database password                         |
-| `AUTH0_DOMAIN`        | Yes      | Auth0 tenant domain                       |
-| `AUTH0_AUDIENCE`      | Yes      | Auth0 API audience (JWT validation)       |
-| `AUTH0_CLIENT_ID`     | Yes      | Auth0 SPA client ID (frontend)            |
-| `OLLAMA_BASE_URL`     | Yes      | Local Ollama server URL (AI triage)       |
-| `OLLAMA_MODEL`        | Yes      | Local Ollama model name (e.g. gemma:2b)   |
-| `ELEVENLABS_API_KEY`  | No       | ElevenLabs key (voice TTS — Phase 5)      |
+| `DATABASE_URL`        | Yes      | Full PostgreSQL connection string         |
+| `OLLAMA_BASE_URL`     | Yes      | Ollama server URL (e.g. `http://localhost:11434`) |
+| `OLLAMA_MODEL`                    | Yes      | Ollama model name (e.g. `gemma:2b`)                              |
+| `ELEVENLABS_AGENT_ID`             | Yes      | ElevenLabs Conversational AI agent ID (backend reference)        |
+| `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` | Yes      | Same agent ID — must be set in `frontend/.env.local` for Next.js |
+| `NEXT_PUBLIC_API_URL`             | Yes      | Backend API base URL seen by the browser (e.g. `http://localhost:8000`) |
+| `AUTH0_DOMAIN`                    | No       | Auth0 tenant domain (not used in dev stub mode)                  |
+| `AUTH0_AUDIENCE`                  | No       | Auth0 API audience (not used in dev stub mode)                   |
+| `AUTH0_CLIENT_ID`                 | No       | Auth0 SPA client ID (not used in dev stub mode)                  |
+
+---
+
+## Voice Agent Setup (ElevenLabs)
+
+The voice report flow uses an ElevenLabs Conversational AI agent for the STT + TTS conversation. After the conversation ends, the full transcript is passed to Gemma for triage and location extraction — the same pipeline as manual reports.
+
+### 1. Create an ElevenLabs account
+
+Sign up at [elevenlabs.io](https://elevenlabs.io) and navigate to **Conversational AI → Agents**.
+
+### 2. Create a new agent
+
+1. Click **Create Agent**
+2. Give it a name (e.g. `CivicFix Reporter`)
+3. Set the **System Prompt** to instruct it to collect civic issue details. Example:
+
+```
+You are a friendly civic assistant helping residents report local issues.
+Ask the resident to describe the problem, its exact location (street address or nearby landmark),
+and how long it has been present. Keep questions short and conversational.
+When you have enough information, say goodbye and end the conversation.
+```
+
+4. Choose a voice and configure language settings as needed
+5. Click **Save**
+
+### 3. Copy the Agent ID
+
+After saving, the agent detail page shows an **Agent ID** in the format `agent_xxxxxxxxxxxx`. Copy it.
+
+### 4. Configure the environment
+
+**Root `.env`** (used by the backend):
+```bash
+ELEVENLABS_AGENT_ID=agent_xxxxxxxxxxxx
+```
+
+**`frontend/.env.local`** (used by Next.js — must be here, not the root `.env`):
+```bash
+NEXT_PUBLIC_ELEVENLABS_AGENT_ID=agent_xxxxxxxxxxxx
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+> **Why two files?** Next.js only exposes `NEXT_PUBLIC_*` variables that were present in the `frontend/` directory at build time. Variables in the project root `.env` are not visible to the browser bundle.
+
+### 5. Allow microphone access
+
+The voice page uses the browser's microphone via the ElevenLabs SDK. When prompted by the browser, click **Allow**. HTTPS is required in production (Digital Ocean App Platform handles this automatically).
+
+### 6. Test the voice flow
+
+1. Open `http://localhost:3000/report/voice`
+2. Click **Start Voice Report**
+3. Speak your issue naturally — the agent will ask follow-up questions
+4. Click **End & Continue** when done
+5. Optionally attach a photo, then click **Submit Report**
+6. The transcript is sent to Gemma for triage; location is extracted from the transcript automatically
 
 ---
 

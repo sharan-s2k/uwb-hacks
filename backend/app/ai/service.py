@@ -1,3 +1,5 @@
+import httpx
+
 from app.ai.local_llm_client import call_local_llm
 from app.ai.prompts import build_triage_prompt
 from app.ai.schemas import AITriageInput, AITriageOutput, TriageCallResult
@@ -55,3 +57,36 @@ async def triage_report(payload: AITriageInput) -> TriageCallResult:
 
     fallback = fallback_triage_output()
     return TriageCallResult(raw_output=None, parsed_output=fallback, error_message=last_error)
+
+
+async def extract_location_from_transcript(transcript: str) -> str:
+    """
+    Uses Gemma to extract the location mentioned in a voice conversation transcript.
+    Returns a plain-text location string, or 'Location not specified' on failure.
+    """
+    prompt = (
+        "Extract the specific location mentioned in the conversation below.\n"
+        "Return only the location as a short string (street address, intersection, or landmark).\n"
+        "If no specific location is mentioned, return: Location not specified\n"
+        "Do not include any explanation or extra text.\n\n"
+        f"Conversation:\n{transcript}\n\n"
+        "Location:"
+    )
+
+    try:
+        url = f"{settings.ollama_base_url}/api/generate"
+        payload = {
+            "model": settings.ollama_model,
+            "prompt": prompt,
+            "stream": False,
+            # No "format": "json" — we want a plain text response here
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        location = data.get("response", "").strip()
+        return location if location else "Location not specified"
+    except Exception:  # noqa: BLE001
+        return "Location not specified"

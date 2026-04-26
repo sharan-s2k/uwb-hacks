@@ -5,20 +5,41 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 from app.database import SessionLocal
 from app.agencies.models import Agency
 from app.tickets.models import Ticket
+from app.users.models import User
 import uuid
+
 
 def seed():
     db = SessionLocal()
 
+    # ── Seed user ──────────────────────────────────────────────────────────────
+    print("Seeding demo user...")
+    demo_user = db.query(User).filter_by(auth0_sub="dev|citizen@example.com").first()
+    if not demo_user:
+        demo_user = User(
+            auth0_sub="dev|citizen@example.com",
+            email="citizen@example.com",
+            name="Demo Citizen",
+            role="citizen",
+        )
+        db.add(demo_user)
+        db.flush()
+        print("  Created demo user")
+    else:
+        print("  Demo user already exists")
+
+    # ── Seed agencies ──────────────────────────────────────────────────────────
     print("Seeding agencies...")
     agencies_data = [
-        ("Demo City Public Works",        "PUBLIC_WORKS"),
-        ("Demo City Electric Utility",    "ELECTRIC_UTILITY"),
-        ("Demo City Sanitation",          "SANITATION"),
-        ("Demo City Parks Department",    "PARKS"),
-        ("Demo City Water Services",      "WATER_SERVICES"),
-        ("Demo City Code Enforcement",    "CODE_ENFORCEMENT"),
-        ("Unassigned Civic Intake Queue", "UNASSIGNED"),
+        ("Demo City Public Works",          "PUBLIC_WORKS"),
+        ("Demo City Electric Utility",      "ELECTRIC_UTILITY"),
+        ("Demo City Transportation",        "TRANSPORTATION"),
+        ("Demo City Sanitation",            "SANITATION"),
+        ("Demo City Parks Department",      "PARKS"),
+        ("Demo City Water Services",        "WATER_SERVICES"),
+        ("Demo City Code Enforcement",      "CODE_ENFORCEMENT"),
+        ("Demo City Parking Enforcement",   "PARKING_ENFORCEMENT"),
+        ("Unassigned Civic Intake Queue",   "UNASSIGNED"),
     ]
 
     agencies = {}
@@ -34,6 +55,7 @@ def seed():
             agencies[atype] = existing.id
             print(f"  Already exists: {name}")
 
+    # ── Seed tickets ───────────────────────────────────────────────────────────
     print("Seeding tickets...")
     tickets_data = [
         ("Large pothole on Main Street",
@@ -82,7 +104,7 @@ def seed():
 
         ("Abandoned vehicle on 2nd Ave",
          "Car has been parked without moving for 2 weeks on 2nd Ave.",
-         "ABANDONED_VEHICLE", "CODE_ENFORCEMENT", "LOW", "RESOLVED", False, False),
+         "ABANDONED_VEHICLE", "PARKING_ENFORCEMENT", "LOW", "RESOLVED", False, False),
 
         ("Park equipment damaged",
          "Swing set at Central Park has broken chains. Kids could get hurt.",
@@ -93,8 +115,8 @@ def seed():
         existing = db.query(Ticket).filter_by(title=title).first()
         if not existing:
             t = Ticket(
-                ticket_number=f"CFX-2026-{str(i+1).zfill(4)}",
-                created_by=None,
+                ticket_number=f"CFX-SEED-{str(i + 1).zfill(4)}",
+                created_by=demo_user.id,
                 assigned_agency_id=agencies.get(atype),
                 title=title,
                 original_description=desc,
@@ -102,7 +124,7 @@ def seed():
                 severity=severity,
                 status=status,
                 routing_status="ASSIGNED",
-                routing_reason=f"Mapped from {category}",
+                routing_reason=f"Seeded: {category} → {atype}",
                 citizen_summary=f"Your report '{title}' has been submitted and routed.",
                 agency_summary=desc,
                 suggested_action="Review and dispatch crew to address the issue.",
@@ -114,10 +136,13 @@ def seed():
             )
             db.add(t)
             print(f"  Created ticket: {title}")
+        else:
+            print(f"  Already exists: {title}")
 
     db.commit()
     db.close()
     print("✅ Seed complete!")
+
 
 if __name__ == "__main__":
     seed()
