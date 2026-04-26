@@ -376,7 +376,7 @@ export default function VoiceReporter() {
       {/* Language picker — only shown at idle */}
       {state === "idle" && (
         <div style={{ marginBottom: 20 }}>
-          <label style={{ ...s.label, marginBottom: 8 }}>🌐 Report language</label>
+          <label style={{ ...s.label, marginBottom: 8 }}>🌐 Choose language</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {LANGUAGES.map((lang) => {
               const active = selectedLang.code === lang.code;

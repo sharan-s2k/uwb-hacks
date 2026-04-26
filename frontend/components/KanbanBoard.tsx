@@ -1,13 +1,17 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { fetchJsonWithFallback, patchJsonWithFallback } from "@/lib/api";
 
+interface AgencyOption { id: string; name: string; agency_type: string; }
+
+const NON_FORWARDABLE_STATUS = "RESOLVED";
+
 const COLS = [
-  { key:"ROUTED", label:"Routed", bg:"#EEF5FC", border:"#C8DEFA", dot:"#378ADD", countBg:"#B5D4F4", countColor:"#0C447C" },
-  { key:"IN_PROGRESS", label:"In Progress", bg:"#FDF6EC", border:"#FAD99B", dot:"#BA7517", countBg:"#FAC775", countColor:"#633806" },
-  { key:"NEEDS_MORE_INFO", label:"Needs Info", bg:"#FDF0EC", border:"#F5C4B3", dot:"#D85A30", countBg:"#F5C4B3", countColor:"#712B13" },
-  { key:"RESOLVED", label:"Resolved", bg:"#EEF7E6", border:"#C0DD97", dot:"#3B6D11", countBg:"#C0DD97", countColor:"#27500A" },
+  { key:"ROUTED",          label:"Routed",      bg:"#EEF5FC", border:"#C8DEFA", dot:"#378ADD", countBg:"#B5D4F4", countColor:"#0C447C" },
+  { key:"IN_PROGRESS",     label:"In Progress", bg:"#FDF6EC", border:"#FAD99B", dot:"#BA7517", countBg:"#FAC775", countColor:"#633806" },
+  { key:"NEEDS_MORE_INFO", label:"Needs Info",  bg:"#FDF0EC", border:"#F5C4B3", dot:"#D85A30", countBg:"#F5C4B3", countColor:"#712B13" },
+  { key:"RESOLVED",        label:"Resolved",    bg:"#EEF7E6", border:"#C0DD97", dot:"#3B6D11", countBg:"#C0DD97", countColor:"#27500A" },
 ];
 
 const SEV: Record<string, { bg: string; color: string }> = {
@@ -18,23 +22,21 @@ const SEV: Record<string, { bg: string; color: string }> = {
 };
 
 const MOCK = [
-  { id:"1",  title:"Large pothole on Main Street",             category:"Pothole",          severity:"MEDIUM",   status:"ROUTED",          location_text:"Main St & 4th Ave",    safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0001" },
-  { id:"2",  title:"Pothole on Oak Avenue",                    category:"Pothole",          severity:"HIGH",     status:"IN_PROGRESS",     location_text:"Oak Ave near school",  safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0002" },
-  { id:"3",  title:"Broken sidewalk on 5th Street",            category:"Sidewalk",         severity:"MEDIUM",   status:"NEEDS_MORE_INFO", location_text:"5th Street",           safety_flag:false, accessibility_flag:true,  emergency_flag:false, ticket_number:"CFX-0003" },
-  { id:"4",  title:"Streetlight out near community center",    category:"Streetlight",      severity:"HIGH",     status:"ROUTED",          location_text:"Community Center",     safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0004" },
-  { id:"5",  title:"Multiple streetlights out on Elm St",      category:"Streetlight",      severity:"HIGH",     status:"IN_PROGRESS",     location_text:"Elm St 2nd–4th Ave",   safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0005" },
-  { id:"6",  title:"Streetlight flickering on Park Blvd",      category:"Streetlight",      severity:"LOW",      status:"RESOLVED",        location_text:"Park Blvd",            safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0006" },
-  { id:"7",  title:"Flooding on Riverside Drive",              category:"Flooding",         severity:"HIGH",     status:"ROUTED",          location_text:"Riverside Drive",      safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0007" },
-  { id:"8",  title:"Water leak on Oak Street",                 category:"Water Leak",       severity:"CRITICAL", status:"IN_PROGRESS",     location_text:"Oak St & 3rd",         safety_flag:true,  accessibility_flag:false, emergency_flag:true,  ticket_number:"CFX-0008" },
-  { id:"9",  title:"Park equipment damaged",                   category:"Park Damage",      severity:"HIGH",     status:"ROUTED",          location_text:"Central Park",         safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0009" },
-  { id:"10", title:"Graffiti on underpass wall",               category:"Graffiti",         severity:"LOW",      status:"ROUTED",          location_text:"Underpass on 1st",     safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0010" },
-  { id:"11", title:"Abandoned vehicle on 2nd Ave",             category:"Abandoned Vehicle",severity:"LOW",      status:"RESOLVED",        location_text:"2nd Ave",              safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0011" },
-  { id:"12", title:"Illegal dumping behind plaza",             category:"Illegal Dumping",  severity:"MEDIUM",   status:"ROUTED",          location_text:"Behind shopping plaza",safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0012" },
+  { id:"1",  title:"Large pothole on Main Street",          category:"Pothole",           severity:"MEDIUM",   status:"ROUTED",          location_text:"Main St & 4th Ave",     safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0001" },
+  { id:"2",  title:"Pothole on Oak Avenue",                 category:"Pothole",           severity:"HIGH",     status:"IN_PROGRESS",     location_text:"Oak Ave near school",   safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0002" },
+  { id:"3",  title:"Broken sidewalk on 5th Street",         category:"Sidewalk",          severity:"MEDIUM",   status:"NEEDS_MORE_INFO", location_text:"5th Street",            safety_flag:false, accessibility_flag:true,  emergency_flag:false, ticket_number:"CFX-0003" },
+  { id:"4",  title:"Streetlight out near community center", category:"Streetlight",       severity:"HIGH",     status:"ROUTED",          location_text:"Community Center",      safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0004" },
+  { id:"5",  title:"Multiple streetlights out on Elm St",   category:"Streetlight",       severity:"HIGH",     status:"IN_PROGRESS",     location_text:"Elm St 2nd–4th Ave",    safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0005" },
+  { id:"6",  title:"Streetlight flickering on Park Blvd",   category:"Streetlight",       severity:"LOW",      status:"RESOLVED",        location_text:"Park Blvd",             safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0006" },
+  { id:"7",  title:"Flooding on Riverside Drive",           category:"Flooding",          severity:"HIGH",     status:"ROUTED",          location_text:"Riverside Drive",       safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0007" },
+  { id:"8",  title:"Water leak on Oak Street",              category:"Water Leak",        severity:"CRITICAL", status:"IN_PROGRESS",     location_text:"Oak St & 3rd",          safety_flag:true,  accessibility_flag:false, emergency_flag:true,  ticket_number:"CFX-0008" },
+  { id:"9",  title:"Park equipment damaged",                category:"Park Damage",       severity:"HIGH",     status:"ROUTED",          location_text:"Central Park",          safety_flag:true,  accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0009" },
+  { id:"10", title:"Graffiti on underpass wall",            category:"Graffiti",          severity:"LOW",      status:"ROUTED",          location_text:"Underpass on 1st",      safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0010" },
+  { id:"11", title:"Abandoned vehicle on 2nd Ave",          category:"Abandoned Vehicle", severity:"LOW",      status:"RESOLVED",        location_text:"2nd Ave",               safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0011" },
+  { id:"12", title:"Illegal dumping behind plaza",          category:"Illegal Dumping",   severity:"MEDIUM",   status:"ROUTED",          location_text:"Behind shopping plaza", safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0012" },
 ];
 
-interface KanbanBoardProps {
-  agencyName?: string;
-}
+interface KanbanBoardProps { agencyName?: string; }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -44,58 +46,125 @@ function resolveImageUrl(imageUrl?: string): string | null {
   if (!imageUrl.startsWith("/")) return imageUrl;
   if (API_URL) return `${API_URL}${imageUrl}`;
   if (typeof window === "undefined") return imageUrl;
-  if (window.location.hostname === "localhost" && window.location.port === "3000") {
-    return `http://localhost:8000${imageUrl}`;
-  }
+  if (window.location.hostname === "localhost" && window.location.port === "3000") return `http://localhost:8000${imageUrl}`;
   return imageUrl;
 }
 
 export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any>(null);
-  const [imageLoadError, setImageLoadError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [usingMock, setUsingMock] = useState(false);
-  const [severityFilter, setSeverityFilter] = useState<string>("ALL");
-  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-  const [showSafetyOnly, setShowSafetyOnly] = useState(false);
+  const [tickets, setTickets]                   = useState<any[]>([]);
+  const [selected, setSelected]                 = useState<any>(null);
+  const [imageLoadError, setImageLoadError]     = useState(false);
+  const [loading, setLoading]                   = useState(true);
+  const [usingMock, setUsingMock]               = useState(false);
+  const [severityFilter, setSeverityFilter]     = useState("ALL");
+  const [categoryFilter, setCategoryFilter]     = useState("ALL");
+  const [showSafetyOnly, setShowSafetyOnly]     = useState(false);
   const [showAccessibilityOnly, setShowAccessibilityOnly] = useState(false);
   const [showEmergencyOnly, setShowEmergencyOnly] = useState(false);
+
+  // ── Drag & drop + bulk selection ──────────────────────────────────────────
+  const [checkedIds, setCheckedIds]   = useState<Set<string>>(new Set());
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const draggingIds                   = useRef<string[]>([]);
+
+  // ── Forward to department ─────────────────────────────────────────────────
+  const [agencies, setAgencies]               = useState<AgencyOption[]>([]);
+  const [forwardingAgency, setForwardingAgency] = useState("");
 
   useEffect(() => {
     const url = agencyName
       ? `/api/agency/tickets?agency_name=${encodeURIComponent(agencyName)}`
       : "/api/agency/tickets";
-
     fetchJsonWithFallback<any[]>(url)
-      .then(list => {
-        setTickets(list.length > 0 ? list : MOCK);
-        setUsingMock(list.length === 0);
-        setLoading(false);
-      })
+      .then(list => { setTickets(list.length > 0 ? list : MOCK); setUsingMock(list.length === 0); setLoading(false); })
       .catch(() => { setTickets(MOCK); setUsingMock(true); setLoading(false); });
+
+    fetchJsonWithFallback<AgencyOption[]>("/api/agencies")
+      .then(setAgencies)
+      .catch(() => {});
   }, [agencyName]);
 
+  // Move one ticket (optimistic + API)
   const move = (id: string, status: string) => {
-    const previous = tickets;
     setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-    if (selected?.id === id) setSelected(null);
-    if (!usingMock) {
-      patchJsonWithFallback(`/api/tickets/${id}/status`, { status })
-        .then((response) => {
-          if (!response.ok) {
-            setTickets(previous);
-          }
-        })
-        .catch(() => {
-          setTickets(previous);
-        });
+    if (selected?.id === id) setSelected((s: any) => ({ ...s, status }));
+    if (!usingMock) patchJsonWithFallback(`/api/tickets/${id}/status`, { status });
+  };
+
+  // Move many tickets at once
+  const moveMany = (ids: string[], status: string) => {
+    setTickets(prev => prev.map(t => ids.includes(t.id) ? { ...t, status } : t));
+    if (!usingMock) ids.forEach(id => patchJsonWithFallback(`/api/tickets/${id}/status`, { status }));
+    setCheckedIds(new Set());
+  };
+
+  // Forward/reassign many tickets to a different department
+  const forwardMany = (ids: string[], agency_name: string) => {
+    setTickets(prev => prev.map(t => ids.includes(t.id) ? { ...t, assigned_agency_name: agency_name } : t));
+    if (!usingMock) ids.forEach(id => patchJsonWithFallback(`/api/tickets/${id}/agency`, { agency_name }));
+    setCheckedIds(new Set());
+    setForwardingAgency("");
+  };
+
+  // Toggle checkbox
+  const toggleCheck = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // ── DnD handlers ─────────────────────────────────────────────────────────
+
+  const handleDragStart = (e: React.DragEvent, ticketId: string) => {
+    // If the dragged card is checked, carry all checked cards; otherwise just this one
+    const ids = checkedIds.has(ticketId) ? Array.from(checkedIds) : [ticketId];
+    draggingIds.current = ids;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", JSON.stringify(ids));
+  };
+
+  const handleDragOver = (e: React.DragEvent, colKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverCol(colKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the column entirely (not a child element)
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+      setDragOverCol(null);
     }
   };
 
-  const categories = Array.from(
-    new Set(tickets.map((t) => t.category).filter(Boolean))
-  ).sort();
+  const handleDrop = (e: React.DragEvent, colKey: string) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    const ids = draggingIds.current;
+    if (!ids.length) return;
+    // Only move tickets that aren't already in this column
+    const toMove = ids.filter(id => tickets.find(t => t.id === id)?.status !== colKey);
+    if (toMove.length) moveMany(toMove, colKey);
+    draggingIds.current = [];
+  };
+
+  const handleDragEnd = () => {
+    setDragOverCol(null);
+    draggingIds.current = [];
+  };
+
+  // Forward is enabled only when no RESOLVED ticket is in the selection
+  const checkedTickets    = tickets.filter(t => checkedIds.has(t.id));
+  const forwardEnabled    = checkedIds.size > 0 && checkedTickets.every(t => t.status !== NON_FORWARDABLE_STATUS);
+  const forwardDisabledMsg = checkedIds.size > 0 && !forwardEnabled
+    ? "Cannot forward — deselect resolved tickets first"
+    : "";
+
+  // ── Filtering ─────────────────────────────────────────────────────────────
+
+  const categories = Array.from(new Set(tickets.map(t => t.category).filter(Boolean))).sort();
 
   const filtered = tickets.filter(t => {
     if (severityFilter !== "ALL" && t.severity !== severityFilter) return false;
@@ -115,7 +184,7 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
     </div>
   );
 
-  const s = { total: tickets.length, critical: tickets.filter(t => t.severity==="CRITICAL").length, open: tickets.filter(t => t.status!=="RESOLVED").length, resolved: tickets.filter(t => t.status==="RESOLVED").length };
+  const stats = { total: tickets.length, critical: tickets.filter(t => t.severity==="CRITICAL").length, open: tickets.filter(t => t.status!=="RESOLVED").length, resolved: tickets.filter(t => t.status==="RESOLVED").length };
 
   const pill = (label: string, bg: string, color: string) => (
     <span style={{ fontSize:10, fontWeight:500, padding:"2px 7px", borderRadius:10, background:bg, color, letterSpacing:.2 }}>{label}</span>
@@ -129,7 +198,15 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
 
   return (
     <div style={{ fontFamily:"system-ui,-apple-system,sans-serif", background:"#f5f6f8", minHeight:"100vh", padding:24 }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}.kb-card:hover{border-color:#bbb!important;transform:translateY(-1px)}.kb-move:hover{background:#fff!important;color:#333!important}.kb-move-lg:hover{background:#f0f0f0!important}`}</style>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .kb-card:hover{border-color:#bbb!important;transform:translateY(-1px)}
+        .kb-card.dragging{opacity:0.45;transform:scale(0.97)}
+        .kb-col-drop{border-color:#378ADD!important;background:#dbeafe!important;box-shadow:0 0 0 2px #378ADD40}
+        .kb-move:hover{background:#fff!important;color:#333!important}
+        .kb-move-lg:hover{background:#f0f0f0!important}
+        .kb-checkbox{width:15px;height:15px;cursor:pointer;accent-color:#185FA5;flex-shrink:0}
+      `}</style>
 
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
@@ -138,14 +215,8 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".9"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".6"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".6"/><rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".3"/></svg>
           </div>
           <div>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              {agencyName && (
-                <Link href="/agency" style={{ fontSize:12, color:"#888", textDecoration:"none" }}>← Departments</Link>
-              )}
-            </div>
-            <div style={{ fontSize:15, fontWeight:600, color:"#1a1a1a" }}>
-              {agencyName ?? "All Departments"}
-            </div>
+            {agencyName && <Link href="/agency" style={{ fontSize:12, color:"#888", textDecoration:"none" }}>← Departments</Link>}
+            <div style={{ fontSize:15, fontWeight:600, color:"#1a1a1a" }}>{agencyName ?? "All Departments"}</div>
             <div style={{ fontSize:11, color:"#888" }}>Agency operations</div>
           </div>
         </div>
@@ -156,57 +227,117 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
 
       {/* Stats */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:20 }}>
-        {[["Total tickets", s.total, "#1a1a1a", ""], ["Critical", s.critical, "#A32D2D", "immediate action"], ["Open", s.open, "#185FA5", "across all stages"], ["Resolved", s.resolved, "#3B6D11", "this period"]].map(([label, val, color, sub]) => (
-          <div key={label as string} style={{ background:"#fff", border:"0.5px solid #e5e5e5", borderRadius:12, padding:"14px 16px" }}>
+        {([["Total tickets", stats.total, "#1a1a1a", ""], ["Critical", stats.critical, "#A32D2D", "immediate action"], ["Open", stats.open, "#185FA5", "across all stages"], ["Resolved", stats.resolved, "#3B6D11", "this period"]] as const).map(([label, val, color, sub]) => (
+          <div key={label} style={{ background:"#fff", border:"0.5px solid #e5e5e5", borderRadius:12, padding:"14px 16px" }}>
             <div style={{ fontSize:11, color:"#888", textTransform:"uppercase", letterSpacing:.5, marginBottom:6 }}>{label}</div>
-            <div style={{ fontSize:26, fontWeight:500, color: color as string }}>{val}</div>
+            <div style={{ fontSize:26, fontWeight:500, color }}>{val}</div>
             {sub && <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>{sub}</div>}
           </div>
         ))}
       </div>
 
       {/* Toolbar */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: checkedIds.size > 0 ? 8 : 16, flexWrap:"wrap" }}>
         <span style={{ fontSize:12, color:"#888", marginRight:4 }}>Filter:</span>
-        <select
-          value={severityFilter}
-          onChange={(e) => setSeverityFilter(e.target.value)}
-          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, border: "0.5px solid #ddd", background: "#fff", color: "#444", fontFamily: "inherit" }}
-        >
+        <select value={severityFilter} onChange={e => setSeverityFilter(e.target.value)}
+          style={{ fontSize:12, padding:"6px 10px", borderRadius:8, border:"0.5px solid #ddd", background:"#fff", color:"#444", fontFamily:"inherit" }}>
           <option value="ALL">All severities</option>
           <option value="LOW">Low</option>
           <option value="MEDIUM">Medium</option>
           <option value="HIGH">High</option>
           <option value="CRITICAL">Critical</option>
         </select>
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, border: "0.5px solid #ddd", background: "#fff", color: "#444", fontFamily: "inherit" }}
-        >
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+          style={{ fontSize:12, padding:"6px 10px", borderRadius:8, border:"0.5px solid #ddd", background:"#fff", color:"#444", fontFamily:"inherit" }}>
           <option value="ALL">All categories</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>{category}</option>
-          ))}
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <button style={filterBtnStyle(showSafetyOnly)} onClick={() => setShowSafetyOnly((v) => !v)}>
-          Safety flags
-        </button>
-        <button style={filterBtnStyle(showAccessibilityOnly)} onClick={() => setShowAccessibilityOnly((v) => !v)}>
-          Accessibility
-        </button>
-        <button style={filterBtnStyle(showEmergencyOnly)} onClick={() => setShowEmergencyOnly((v) => !v)}>
-          Emergency
-        </button>
+        <button style={filterBtnStyle(showSafetyOnly)} onClick={() => setShowSafetyOnly(v => !v)}>Safety flags</button>
+        <button style={filterBtnStyle(showAccessibilityOnly)} onClick={() => setShowAccessibilityOnly(v => !v)}>Accessibility</button>
+        <button style={filterBtnStyle(showEmergencyOnly)} onClick={() => setShowEmergencyOnly(v => !v)}>Emergency</button>
         <div style={{ marginLeft:"auto", fontSize:11, color:"#aaa" }}>Showing {filtered.length} ticket{filtered.length!==1?"s":""}</div>
       </div>
+
+      {/* Bulk action bar */}
+      {checkedIds.size > 0 && (
+        <div style={{ background:"#EBF2FB", border:"0.5px solid #85B7EB", borderRadius:10, padding:"10px 14px", marginBottom:16 }}>
+          {/* Row 1: selection count + move status buttons */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+            <span style={{ fontSize:12, fontWeight:600, color:"#0C447C" }}>
+              {checkedIds.size} ticket{checkedIds.size > 1 ? "s" : ""} selected
+            </span>
+            <span style={{ fontSize:12, color:"#4B7BAD" }}>— Move all to:</span>
+            {COLS.map(col => (
+              <button key={col.key} onClick={() => moveMany(Array.from(checkedIds), col.key)}
+                style={{ fontSize:11, padding:"4px 10px", border:`0.5px solid ${col.border}`, borderRadius:8, background:col.bg, color:col.countColor, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:col.dot, display:"inline-block" }}/>
+                {col.label}
+              </button>
+            ))}
+            <button onClick={() => setCheckedIds(new Set())}
+              style={{ marginLeft:"auto", fontSize:11, padding:"4px 10px", border:"0.5px solid #ddd", borderRadius:8, background:"#fff", color:"#888", cursor:"pointer", fontFamily:"inherit" }}>
+              Clear selection
+            </button>
+          </div>
+
+          {/* Row 2: forward to department */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:10, paddingTop:10, borderTop:"0.5px solid #C8DEFA", flexWrap:"wrap" }}>
+            <span style={{ fontSize:12, fontWeight:600, color: forwardEnabled ? "#0C447C" : "#9BB8D4" }}>
+              🔀 Forward to department:
+            </span>
+            <div style={{ position:"relative", display:"flex", alignItems:"center", gap:6 }}>
+              <select
+                value={forwardingAgency}
+                disabled={!forwardEnabled}
+                title={forwardDisabledMsg}
+                onChange={e => {
+                  const name = e.target.value;
+                  if (name) forwardMany(Array.from(checkedIds), name);
+                }}
+                style={{
+                  fontSize:12, padding:"5px 28px 5px 10px",
+                  borderRadius:8,
+                  border: forwardEnabled ? "1px solid #378ADD" : "0.5px solid #C8DEFA",
+                  background: forwardEnabled ? "#fff" : "#EBF2FB",
+                  color: forwardEnabled ? "#0C447C" : "#9BB8D4",
+                  cursor: forwardEnabled ? "pointer" : "not-allowed",
+                  fontFamily:"inherit",
+                  appearance:"none",
+                  WebkitAppearance:"none",
+                  minWidth:200,
+                }}
+              >
+                <option value="">Select department…</option>
+                {agencies.map(a => (
+                  <option key={a.id} value={a.name}>{a.name}</option>
+                ))}
+              </select>
+              <span style={{ pointerEvents:"none", position:"absolute", right:10, color: forwardEnabled ? "#378ADD" : "#9BB8D4", fontSize:11 }}>▼</span>
+            </div>
+            {forwardDisabledMsg && (
+              <span style={{ fontSize:11, color:"#c04040", fontStyle:"italic" }}>
+                ⚠ {forwardDisabledMsg}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Kanban board */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10 }}>
         {COLS.map(col => {
           const items = filtered.filter(t => t.status === col.key);
+          const isDropTarget = dragOverCol === col.key;
           return (
-            <div key={col.key} style={{ background:col.bg, border:`0.5px solid ${col.border}`, borderRadius:12, padding:12 }}>
+            <div
+              key={col.key}
+              className={isDropTarget ? "kb-col-drop" : ""}
+              onDragOver={e => handleDragOver(e, col.key)}
+              onDragLeave={handleDragLeave}
+              onDrop={e => handleDrop(e, col.key)}
+              style={{ background:col.bg, border:`0.5px solid ${col.border}`, borderRadius:12, padding:12, transition:"border-color .1s, background .1s, box-shadow .1s", minHeight:120 }}
+            >
+              {/* Column header */}
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, paddingBottom:10, borderBottom:`0.5px solid ${col.border}` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:7, fontSize:13, fontWeight:500, color:"#1a1a1a" }}>
                   <div style={{ width:8, height:8, borderRadius:"50%", background:col.dot }}/>
@@ -215,50 +346,91 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
                 <span style={{ fontSize:11, fontWeight:500, padding:"2px 8px", borderRadius:10, background:col.countBg, color:col.countColor }}>{items.length}</span>
               </div>
 
+              {/* Cards */}
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {items.length === 0 && <div style={{ textAlign:"center", padding:"28px 0", fontSize:12, color:"#bbb" }}>No tickets here</div>}
-                {items.map(ticket => (
-                  <div key={ticket.id} className="kb-card" onClick={() => { setSelected(ticket); setImageLoadError(false); }}
-                    style={{ background:"#fff", border:"0.5px solid #e8e8e8", borderRadius:10, padding:12, cursor:"pointer", transition:"border-color .15s, transform .1s" }}>
-                    {ticket.emergency_flag && (
-                      <div style={{ background:"#FCEBEB", borderLeft:"3px solid #E24B4A", borderRadius:4, padding:"3px 8px", fontSize:10, fontWeight:500, color:"#791F1F", marginBottom:8, letterSpacing:.3 }}>
-                        Emergency response needed
-                      </div>
-                    )}
-                    <div style={{ fontSize:13, fontWeight:500, color:"#1a1a1a", lineHeight:1.4, marginBottom:8 }}>{ticket.title}</div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
-                      {pill(ticket.severity, SEV[ticket.severity]?.bg, SEV[ticket.severity]?.color)}
-                      {pill(ticket.category, "#f0f0f0", "#666")}
-                      {pill(ticket.ticket_number, "#f5f5f5", "#aaa")}
-                    </div>
-                    {ticket.safety_flag && <div style={{ marginBottom:5 }}>{pill("Safety flag", "#FCEBEB", "#791F1F")}</div>}
-                    {ticket.accessibility_flag && <div style={{ marginBottom:5 }}>{pill("Accessibility", "#E6F1FB", "#0C447C")}</div>}
-                    {ticket.location_text && (
-                      <div style={{ fontSize:11, color:"#999", marginBottom:8, display:"flex", alignItems:"center", gap:4 }}>
-                        <svg width="9" height="12" viewBox="0 0 10 12" fill="none"><path d="M5 0C3.07 0 1.5 1.57 1.5 3.5c0 2.63 3.5 8.5 3.5 8.5s3.5-5.87 3.5-8.5C8.5 1.57 6.93 0 5 0zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" fill="#999"/></svg>
-                        {ticket.location_text}
-                      </div>
-                    )}
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:4, paddingTop:8, borderTop:"0.5px solid #f0f0f0" }}>
-                      {COLS.filter(c => c.key !== col.key).map(c => (
-                        <button key={c.key} className="kb-move" onClick={e => { e.stopPropagation(); move(ticket.id, c.key); }}
-                          style={{ fontSize:10, padding:"3px 8px", border:"0.5px solid #ddd", borderRadius:8, background:"#f8f8f8", color:"#666", cursor:"pointer", fontFamily:"inherit" }}>
-                          → {c.label}
-                        </button>
-                      ))}
-                    </div>
+                {items.length === 0 && (
+                  <div style={{ textAlign:"center", padding:"28px 0", fontSize:12, color: isDropTarget ? "#378ADD" : "#bbb", border: isDropTarget ? "2px dashed #378ADD" : "2px dashed transparent", borderRadius:8, transition:"all .1s" }}>
+                    {isDropTarget ? "Drop here" : "No tickets here"}
                   </div>
-                ))}
+                )}
+                {items.map(ticket => {
+                  const isChecked = checkedIds.has(ticket.id);
+                  const isBeingDragged = draggingIds.current.includes(ticket.id);
+                  return (
+                    <div
+                      key={ticket.id}
+                      draggable
+                      onDragStart={e => handleDragStart(e, ticket.id)}
+                      onDragEnd={handleDragEnd}
+                      className={`kb-card${isBeingDragged ? " dragging" : ""}`}
+                      onClick={() => { setSelected(ticket); setImageLoadError(false); }}
+                      style={{
+                        background: isChecked ? "#F0F7FF" : "#fff",
+                        border: isChecked ? "1.5px solid #378ADD" : "0.5px solid #e8e8e8",
+                        borderRadius:10, padding:12,
+                        cursor:"grab",
+                        transition:"border-color .15s, transform .1s, background .1s",
+                        userSelect:"none",
+                      }}
+                    >
+                      {/* Card top row: checkbox + ticket number */}
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                        <input
+                          type="checkbox"
+                          className="kb-checkbox"
+                          checked={isChecked}
+                          onClick={e => toggleCheck(e, ticket.id)}
+                          onChange={() => {}}
+                        />
+                        <span style={{ fontSize:10, color:"#aaa", fontWeight:500, flex:1 }}>{ticket.ticket_number}</span>
+                        {ticket.emergency_flag && (
+                          <span style={{ fontSize:9, background:"#FCEBEB", color:"#791F1F", padding:"1px 5px", borderRadius:4, fontWeight:600, letterSpacing:.3 }}>EMERGENCY</span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize:13, fontWeight:500, color:"#1a1a1a", lineHeight:1.4, marginBottom:8 }}>{ticket.title}</div>
+
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
+                        {pill(ticket.severity, SEV[ticket.severity]?.bg, SEV[ticket.severity]?.color)}
+                        {pill(ticket.category, "#f0f0f0", "#666")}
+                      </div>
+                      {ticket.safety_flag && <div style={{ marginBottom:5 }}>{pill("Safety flag", "#FCEBEB", "#791F1F")}</div>}
+                      {ticket.accessibility_flag && <div style={{ marginBottom:5 }}>{pill("Accessibility", "#E6F1FB", "#0C447C")}</div>}
+                      {ticket.assigned_agency_name && ticket.assigned_agency_name !== "Unassigned" && (
+                        <div style={{ fontSize:11, color:"#4B7BAD", marginBottom:4, display:"flex", alignItems:"center", gap:4 }}>
+                          🏛 {ticket.assigned_agency_name}
+                        </div>
+                      )}
+                      {ticket.location_text && (
+                        <div style={{ fontSize:11, color:"#999", marginBottom:8, display:"flex", alignItems:"center", gap:4 }}>
+                          <svg width="9" height="12" viewBox="0 0 10 12" fill="none"><path d="M5 0C3.07 0 1.5 1.57 1.5 3.5c0 2.63 3.5 8.5 3.5 8.5s3.5-5.87 3.5-8.5C8.5 1.57 6.93 0 5 0zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" fill="#999"/></svg>
+                          {ticket.location_text}
+                        </div>
+                      )}
+
+                      {/* Quick-move buttons */}
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:4, paddingTop:8, borderTop:"0.5px solid #f0f0f0" }}>
+                        {COLS.filter(c => c.key !== col.key).map(c => (
+                          <button key={c.key} className="kb-move"
+                            onClick={e => { e.stopPropagation(); isChecked ? moveMany(Array.from(checkedIds), c.key) : move(ticket.id, c.key); }}
+                            style={{ fontSize:10, padding:"3px 8px", border:"0.5px solid #ddd", borderRadius:8, background:"#f8f8f8", color:"#666", cursor:"pointer", fontFamily:"inherit" }}>
+                            → {c.label}{isChecked && checkedIds.size > 1 ? ` (${checkedIds.size})` : ""}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Modal */}
+      {/* Detail modal */}
       {selected && (
-        <div onClick={() => setSelected(null)} style={{ minHeight:400, background:"rgba(0,0,0,.4)", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:12, marginTop:16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:16, border:"0.5px solid #e5e5e5", padding:22, width:400, maxHeight:540, overflowY:"auto" }}>
+        <div onClick={() => setSelected(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:50 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:16, border:"0.5px solid #e5e5e5", padding:22, width:420, maxHeight:"80vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
               <div>
                 <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:4 }}>{selected.ticket_number}</div>
@@ -273,25 +445,21 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
               {pill(selected.category, "#f0f0f0", "#555")}
             </div>
 
-            <div style={{ background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
-              <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:4 }}>Location</div>
-              <div style={{ fontSize:13, color:"#1a1a1a" }}>{selected.location_text}</div>
-            </div>
+            {selected.location_text && (
+              <div style={{ background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:4 }}>Location</div>
+                <div style={{ fontSize:13, color:"#1a1a1a" }}>{selected.location_text}</div>
+              </div>
+            )}
 
             {selected.image_url && (
               <div style={{ background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
                 <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:6 }}>Image</div>
                 {!imageLoadError ? (
-                  <img
-                    src={resolveImageUrl(selected.image_url) || ""}
-                    alt="Reported issue"
-                    onError={() => setImageLoadError(true)}
-                    style={{ width:"100%", maxHeight:220, objectFit:"cover", borderRadius:8, border:"0.5px solid #e5e5e5", background:"#fff" }}
-                  />
+                  <img src={resolveImageUrl(selected.image_url) || ""} alt="Reported issue" onError={() => setImageLoadError(true)}
+                    style={{ width:"100%", maxHeight:220, objectFit:"cover", borderRadius:8, border:"0.5px solid #e5e5e5" }} />
                 ) : (
-                  <div style={{ fontSize:12, color:"#888" }}>
-                    Image unavailable (file may no longer exist in local uploads).
-                  </div>
+                  <div style={{ fontSize:12, color:"#888" }}>Image unavailable.</div>
                 )}
               </div>
             )}
@@ -311,7 +479,7 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
             <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Move ticket to</div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:14 }}>
               {COLS.filter(c => c.key !== selected.status).map(c => (
-                <button key={c.key} className="kb-move-lg" onClick={() => { move(selected.id, c.key); setSelected(null); }}
+                <button key={c.key} className="kb-move-lg" onClick={() => { move(selected.id, c.key); setSelected((s: any) => ({ ...s, status: c.key })); }}
                   style={{ fontSize:12, padding:"7px 14px", border:"0.5px solid #ddd", borderRadius:8, background:"#fafafa", color:"#333", cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>
                   <span style={{ display:"inline-block", width:6, height:6, borderRadius:"50%", background:c.dot }}/>
                   {c.label}
