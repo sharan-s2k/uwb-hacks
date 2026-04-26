@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.database import Base, engine
+from app.agencies.routes import agency_list_router, agency_ops_router
 from app.reports.routes import router as reports_router
 from app.tickets.routes import router as tickets_router
 from app.agencies.models import Agency  # noqa: F401
@@ -36,3 +37,5 @@ def health():
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir, check_dir=False), name="uploads")
 app.include_router(reports_router, prefix="/api")
 app.include_router(tickets_router, prefix="/api")
+app.include_router(agency_list_router, prefix="/api")
+app.include_router(agency_ops_router, prefix="/api")

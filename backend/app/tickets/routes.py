@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import uuid as _uuid
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import CurrentUser, get_current_user
@@ -35,6 +38,24 @@ def get_my_tickets(
         )
         for t in tickets
     ]
+
+
+class _StatusBody(BaseModel):
+    status: str
+
+
+@router.patch("/{ticket_id}/status")
+def update_ticket_status(
+    ticket_id: str,
+    body: _StatusBody,
+    db: Session = Depends(get_db),
+):
+    ticket = db.query(Ticket).filter(Ticket.id == _uuid.UUID(ticket_id)).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    ticket.status = body.status
+    db.commit()
+    return {"ok": True}
 
 
 def _agency_name(ticket: Ticket, db: Session) -> str:

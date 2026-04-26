@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const COLS = [
   { key:"ROUTED", label:"Routed", bg:"#EEF5FC", border:"#C8DEFA", dot:"#378ADD", countBg:"#B5D4F4", countColor:"#0C447C" },
@@ -30,9 +31,15 @@ const MOCK = [
   { id:"12", title:"Illegal dumping behind plaza",             category:"Illegal Dumping",  severity:"MEDIUM",   status:"ROUTED",          location_text:"Behind shopping plaza",safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0012" },
 ];
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
 type FilterType = "ALL" | "HIGH" | "CRITICAL" | "safety";
 
-export default function KanbanBoard() {
+interface KanbanBoardProps {
+  agencyName?: string;
+}
+
+export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
   const [tickets, setTickets] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +47,11 @@ export default function KanbanBoard() {
   const [filter, setFilter] = useState<FilterType>("ALL");
 
   useEffect(() => {
-    fetch("/api/agency/tickets")
+    const url = agencyName
+      ? `${API_URL}/api/agency/tickets?agency_name=${encodeURIComponent(agencyName)}`
+      : `${API_URL}/api/agency/tickets`;
+
+    fetch(url)
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(data => {
         const list = Array.isArray(data) ? data : data.tickets ?? [];
@@ -49,7 +60,7 @@ export default function KanbanBoard() {
         setLoading(false);
       })
       .catch(() => { setTickets(MOCK); setUsingMock(true); setLoading(false); });
-  }, []);
+  }, [agencyName]);
 
   const move = (id: string, status: string) => {
     setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
@@ -96,14 +107,19 @@ export default function KanbanBoard() {
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".9"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".6"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".6"/><rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".3"/></svg>
           </div>
           <div>
-            <div style={{ fontSize:15, fontWeight:600, color:"#1a1a1a" }}>CivicFix</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {agencyName && (
+                <Link href="/agency" style={{ fontSize:12, color:"#888", textDecoration:"none" }}>← Departments</Link>
+              )}
+            </div>
+            <div style={{ fontSize:15, fontWeight:600, color:"#1a1a1a" }}>
+              {agencyName ?? "All Departments"}
+            </div>
             <div style={{ fontSize:11, color:"#888" }}>Agency operations</div>
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           {usingMock && <span style={{ fontSize:11, background:"#FAEEDA", color:"#854F0B", padding:"3px 10px", borderRadius:20, border:"0.5px solid #FAC775" }}>Demo data</span>}
-          <div style={{ width:30, height:30, borderRadius:"50%", background:"#E6F1FB", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:600, color:"#0C447C" }}>PW</div>
-          <div style={{ fontSize:12, color:"#666" }}>Public Works</div>
         </div>
       </div>
 

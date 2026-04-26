@@ -86,7 +86,13 @@ async def extract_location_from_transcript(transcript: str) -> str:
             response.raise_for_status()
             data = response.json()
 
-        location = data.get("response", "").strip()
+        location = data.get("response", "").strip().rstrip(".")
+        # Strip verbose preambles the model sometimes adds despite instructions.
+        # e.g. "The specific location mentioned in the conversation is Ananagar, Chennai"
+        for marker in (" is ", " are "," Is ", " Are "):
+            if marker in location:
+                location = location.split(marker)[-1].strip().rstrip(".")
+                break
         return location if location else "Location not specified"
     except Exception:  # noqa: BLE001
         return "Location not specified"

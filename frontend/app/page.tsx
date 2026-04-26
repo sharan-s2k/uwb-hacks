@@ -22,7 +22,7 @@ export default function Home() {
           Report an Issue
         </Link>
         <Link
-          href="/issues"
+          href="/agency"
           style={{
             background: "#fff",
             color: "#1a56db",
@@ -33,7 +33,7 @@ export default function Home() {
             border: "1px solid #1a56db",
           }}
         >
-          View Public Board
+          Manage &amp; Resolve Issues
         </Link>
       </div>
     </div>

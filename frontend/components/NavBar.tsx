@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 export default function NavBar() {
   const pathname = usePathname();
   const isAgencyView = pathname.startsWith("/dashboard/agency");
+  const isHome = pathname === "/" || pathname === "/agency";
 
   return (
     <nav style={{
@@ -21,7 +22,7 @@ export default function NavBar() {
         CivicFix
       </Link>
 
-      {!isAgencyView && (
+      {!isHome && !isAgencyView && (
         <>
           <Link href="/report" style={{ color: "#cbd5e1", fontSize: 14, textDecoration: "none" }}>
             Report Issue
@@ -29,18 +30,15 @@ export default function NavBar() {
           <Link href="/dashboard/citizen" style={{ color: "#cbd5e1", fontSize: 14, textDecoration: "none" }}>
             My Issues
           </Link>
+          <Link href="/issues" style={{ color: "#cbd5e1", fontSize: 14, textDecoration: "none" }}>
+            Public Board
+          </Link>
         </>
       )}
 
       {isAgencyView && (
-        <Link href="/dashboard/agency" style={{ color: "#cbd5e1", fontSize: 14, textDecoration: "none" }}>
-          Agency Dashboard
-        </Link>
-      )}
-
-      {!isAgencyView && (
-        <Link href="/issues" style={{ color: "#cbd5e1", fontSize: 14, textDecoration: "none" }}>
-          Public Board
+        <Link href="/agency" style={{ color: "#cbd5e1", fontSize: 14, textDecoration: "none" }}>
+          Departments
         </Link>
       )}
 
