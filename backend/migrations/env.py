@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.database import Base
 from app.users.models import User
 from app.agencies.models import Agency
-from app.tickets.models import Ticket, TicketUpdate, AITriageLog
+from app.tickets.models import Ticket, TicketUpdate
 
 config = context.config
 config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", ""))

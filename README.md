@@ -1,6 +1,6 @@
 # CivicFix
 
-AI-powered civic issue reporting and routing platform. Residents report local problems (potholes, broken streetlights, flooding, etc.) via text or voice; Gemini AI classifies and routes each report to the correct city agency automatically.
+AI-powered civic issue reporting and routing platform. Residents report local problems (potholes, broken streetlights, flooding, etc.) via text or voice; a local Ollama-hosted Gemma model classifies and routes each report to the correct city agency automatically.
 
 ## Architecture
 
@@ -18,6 +18,7 @@ PostgreSQL  — separate managed DB (DO Managed Database or local)
 frontend/   Next.js 14 (TypeScript)  — port 3000
 backend/    FastAPI (Python 3.12)    — port 8000
             PostgreSQL 16            — port 5432
+ollama      Gemma model runtime      — port 11434
 ```
 
 ---
@@ -29,17 +30,25 @@ backend/    FastAPI (Python 3.12)    — port 8000
 - Node.js 20+
 - Python 3.12+
 - PostgreSQL 16 running locally (or use Docker for just the DB)
+- Ollama installed locally with model pulled (`ollama pull gemma:2b`)
 
 ### 1. Clone and configure
 
 ```bash
 git clone <repo-url>
 cd uwb-hacks
-cp .env.local .env
-# Fill in .env with your Auth0, Gemini, and ElevenLabs credentials
+cp .env.example .env
+# Fill in .env with your Auth0/Ollama/ElevenLabs values
 ```
 
-### 2. Start the database (Docker shortcut)
+### 2. Start local LLM and database
+
+Start Ollama:
+```bash
+ollama run gemma:2b
+```
+
+Start PostgreSQL (Docker shortcut):
 
 ```bash
 docker compose up db -d
@@ -89,19 +98,16 @@ cp .env.local .env
 docker compose up --build
 ```
 
-This starts three containers:
+This starts two containers:
 
 | Container  | Port | Description               |
 |------------|------|---------------------------|
 | `db`       | 5432 | PostgreSQL database        |
-| `backend`  | 8000 | FastAPI API server         |
-| `frontend` | 3000 | Next.js production server  |
+| `app`      | 8080 | Monolith (nginx + FastAPI + Next.js) |
 
 ### 3. Open the app
 
-```
-http://localhost:3000
-```
+`http://localhost:8080`
 
 ### Useful commands
 
@@ -112,8 +118,8 @@ docker compose up --build -d
 # View logs
 docker compose logs -f
 
-# View logs for a specific service
-docker compose logs -f backend
+# View logs for app service
+docker compose logs -f app
 
 # Stop everything
 docker compose down
@@ -134,8 +140,58 @@ docker compose down -v
 | `AUTH0_DOMAIN`        | Yes      | Auth0 tenant domain                       |
 | `AUTH0_AUDIENCE`      | Yes      | Auth0 API audience (JWT validation)       |
 | `AUTH0_CLIENT_ID`     | Yes      | Auth0 SPA client ID (frontend)            |
-| `GEMINI_API_KEY`      | Yes      | Google Gemini API key (AI triage)         |
+| `OLLAMA_BASE_URL`     | Yes      | Local Ollama server URL (AI triage)       |
+| `OLLAMA_MODEL`        | Yes      | Local Ollama model name (e.g. gemma:2b)   |
 | `ELEVENLABS_API_KEY`  | No       | ElevenLabs key (voice TTS — Phase 5)      |
+
+---
+
+## Local Testing (End-to-End)
+
+### 1) Start services
+```bash
+# Terminal A
+ollama run gemma:2b
+
+# Terminal B (project root)
+docker compose up --build
+```
+
+### 2) Verify health and model availability
+```bash
+curl -i http://localhost:8080/health
+curl -s http://localhost:11434/api/tags
+```
+
+Expected:
+- `/health` returns `200` with `{"status":"ok"}`
+- `/api/tags` includes `gemma:2b` (or your configured model)
+
+### 3) Test manual report submission API
+```bash
+curl -s -X POST "http://localhost:8080/api/reports/manual" \
+  -F "description=Large pothole near Main Street and 4th Avenue. Cars are swerving." \
+  -F "location=Main Street and 4th Avenue"
+```
+
+Expected:
+- JSON includes `ticket.id`, `ticket.ticket_number`, `ticket.category`, `ticket.severity`, `ticket.status`
+
+### 4) Verify DB persistence
+```bash
+docker compose exec db psql -U civicfix -d civicfix -c \
+"SELECT ticket_number, title, category, severity, status, routing_status, assigned_agency_id, created_at
+ FROM tickets ORDER BY created_at DESC LIMIT 5;"
+```
+
+Expected:
+- New ticket row appears after each successful submission
+
+### 5) Test via UI
+- Open `http://localhost:8080/report`
+- Submit form with description + location (+ optional image)
+- Confirm success card appears
+- Re-run DB query above and confirm the new ticket is stored
 
 ---
 
@@ -217,7 +273,8 @@ Copy the connection string — you'll need it as `DATABASE_URL`.
 | `AUTH0_DOMAIN` | Your Auth0 tenant |
 | `AUTH0_AUDIENCE` | Your Auth0 API audience |
 | `AUTH0_CLIENT_ID` | Your Auth0 client ID |
-| `GEMINI_API_KEY` | Your Gemini API key |
+| `OLLAMA_BASE_URL` | Local Ollama URL (`http://host.docker.internal:11434` in Docker) |
+| `OLLAMA_MODEL` | Local model name (e.g. `gemma:2b`) |
 | `ELEVENLABS_API_KEY` | Your ElevenLabs key |
 
 DO injects `PORT=8080` automatically — the app reads this to configure nginx.

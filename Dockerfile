@@ -29,7 +29,6 @@ COPY backend/ .
 
 # ── Frontend (standalone build output) ───────────────────────────────────────
 WORKDIR /app/frontend
-COPY --from=frontend-builder /build/frontend/.next/standalone/frontend/ ./
 COPY --from=frontend-builder /build/frontend/.next/standalone/          ./
 COPY --from=frontend-builder /build/frontend/.next/static               ./.next/static
 COPY --from=frontend-builder /build/frontend/public                     ./public

@@ -11,3 +11,4 @@ class Agency(Base):
     description = Column(String)
     is_registered = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
