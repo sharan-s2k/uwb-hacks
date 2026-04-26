@@ -30,7 +30,7 @@ ollama      Gemma model runtime      — port 11434
 - Node.js 20+
 - Python 3.12+
 - PostgreSQL 16 running locally (or use Docker for just the DB)
-- Ollama installed locally with model pulled (`ollama pull gemma:2b`)
+- Ollama installed locally with model pulled (`ollama pull gemma4:e2b`)
 
 ### 1. Clone and configure
 
@@ -45,7 +45,7 @@ cp .env.example .env
 
 Start Ollama:
 ```bash
-ollama run gemma:2b
+ollama run gemma4:e2b
 ```
 
 Start PostgreSQL (Docker shortcut):
@@ -139,13 +139,13 @@ docker compose down -v
 | `POSTGRES_PASSWORD`   | Yes      | Database password                         |
 | `DATABASE_URL`        | Yes      | Full PostgreSQL connection string         |
 | `OLLAMA_BASE_URL`     | Yes      | Ollama server URL (e.g. `http://localhost:11434`) |
-| `OLLAMA_MODEL`                    | Yes      | Ollama model name (e.g. `gemma:2b`)                              |
-| `ELEVENLABS_AGENT_ID`             | Yes      | ElevenLabs Conversational AI agent ID (backend reference)        |
-| `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` | Yes      | Same agent ID — must be set in `frontend/.env.local` for Next.js |
-| `NEXT_PUBLIC_API_URL`             | Yes      | Backend API base URL seen by the browser (e.g. `http://localhost:8000`) |
-| `AUTH0_DOMAIN`                    | No       | Auth0 tenant domain (not used in dev stub mode)                  |
-| `AUTH0_AUDIENCE`                  | No       | Auth0 API audience (not used in dev stub mode)                   |
-| `AUTH0_CLIENT_ID`                 | No       | Auth0 SPA client ID (not used in dev stub mode)                  |
+| `OLLAMA_MODEL`        | Yes      | Ollama model name (e.g. `gemma3:4b` or `gemma:2b`) |
+| `ELEVENLABS_AGENT_ID` | No       | ElevenLabs Conversational AI agent ID (optional for voice flow)  |
+| `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` | No       | Voice agent ID exposed to frontend                                |
+| `NEXT_PUBLIC_API_URL` | No       | Backend API base URL for split local dev; leave empty for monolith |
+| `AUTH0_DOMAIN`        | No       | Auth0 tenant domain (not used in dev stub mode)                  |
+| `AUTH0_AUDIENCE`      | No       | Auth0 API audience (not used in dev stub mode)                   |
+| `AUTH0_CLIENT_ID`     | No       | Auth0 SPA client ID (not used in dev stub mode)                  |
 
 ---
 
@@ -179,12 +179,13 @@ After saving, the agent detail page shows an **Agent ID** in the format `agent_x
 
 ### 4. Configure the environment
 
-**Root `.env`** (used by the backend):
+**Root `.env`** (used by backend and Docker app container):
 ```bash
 ELEVENLABS_AGENT_ID=agent_xxxxxxxxxxxx
+NEXT_PUBLIC_API_URL=
 ```
 
-**`frontend/.env.local`** (used by Next.js — must be here, not the root `.env`):
+**`frontend/.env.local`** (optional for split local dev with `npm run dev`):
 ```bash
 NEXT_PUBLIC_ELEVENLABS_AGENT_ID=agent_xxxxxxxxxxxx
 NEXT_PUBLIC_API_URL=http://localhost:8000
@@ -226,7 +227,7 @@ curl -s http://localhost:11434/api/tags
 
 Expected:
 - `/health` returns `200` with `{"status":"ok"}`
-- `/api/tags` includes `gemma:2b` (or your configured model)
+- `/api/tags` includes `gemma4:e2b` (or your configured model)
 
 ### 3) Test manual report submission API
 ```bash
@@ -335,7 +336,7 @@ Copy the connection string — you'll need it as `DATABASE_URL`.
 | `AUTH0_AUDIENCE` | Your Auth0 API audience |
 | `AUTH0_CLIENT_ID` | Your Auth0 client ID |
 | `OLLAMA_BASE_URL` | Local Ollama URL (`http://host.docker.internal:11434` in Docker) |
-| `OLLAMA_MODEL` | Local model name (e.g. `gemma:2b`) |
+| `OLLAMA_MODEL` | Local model name (match your `.env` value) |
 | `ELEVENLABS_API_KEY` | Your ElevenLabs key |
 
 DO injects `PORT=8080` automatically — the app reads this to configure nginx.
@@ -358,9 +359,10 @@ docker compose up --build
 | GET    | `/health`                      | Health check                     |
 | POST   | `/api/reports/manual`          | Submit a manual report           |
 | POST   | `/api/reports/voice/finalize`  | Submit a voice transcript report |
+| GET    | `/api/tickets/my`              | Current user's submitted tickets |
 | GET    | `/api/agency/tickets`          | Agency-scoped ticket list        |
+| GET    | `/api/agencies`                | Registered agency list           |
 | PATCH  | `/api/tickets/{id}/status`     | Update ticket status             |
 | GET    | `/api/tickets/public`          | Public sanitized issue board     |
-| GET    | `/api/dashboard/admin-summary` | Admin stats                      |
 
 Interactive docs available at `http://localhost:8000/docs` when the backend is running.

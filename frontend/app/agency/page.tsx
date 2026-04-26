@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+import { fetchJsonWithFallback } from "@/lib/api";
 
 interface Agency {
   id: string;
@@ -31,11 +30,7 @@ export default function AgencyListPage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch(`${API_URL}/api/agencies`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`Error ${r.status}`);
-        return r.json();
-      })
+    fetchJsonWithFallback<Agency[]>("/api/agencies")
       .then((data) => setAgencies(data))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

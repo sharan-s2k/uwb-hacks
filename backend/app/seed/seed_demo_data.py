@@ -31,20 +31,20 @@ def seed():
     # ── Seed agencies ──────────────────────────────────────────────────────────
     print("Seeding agencies...")
     agencies_data = [
-        ("Demo City Public Works",          "PUBLIC_WORKS"),
-        ("Demo City Electric Utility",      "ELECTRIC_UTILITY"),
-        ("Demo City Transportation",        "TRANSPORTATION"),
-        ("Demo City Sanitation",            "SANITATION"),
-        ("Demo City Parks Department",      "PARKS"),
-        ("Demo City Water Services",        "WATER_SERVICES"),
-        ("Demo City Code Enforcement",      "CODE_ENFORCEMENT"),
-        ("Demo City Parking Enforcement",   "PARKING_ENFORCEMENT"),
+        ("Public Works",                    "PUBLIC_WORKS"),
+        ("Electric Utility",                "ELECTRIC_UTILITY"),
+        ("Transportation",                  "TRANSPORTATION"),
+        ("Sanitation",                      "SANITATION"),
+        ("Parks Department",                "PARKS"),
+        ("Water Services",                  "WATER_SERVICES"),
+        ("Code Enforcement",                "CODE_ENFORCEMENT"),
+        ("Parking Enforcement",             "PARKING_ENFORCEMENT"),
         ("Unassigned Civic Intake Queue",   "UNASSIGNED"),
     ]
 
     agencies = {}
     for name, atype in agencies_data:
-        existing = db.query(Agency).filter_by(name=name).first()
+        existing = db.query(Agency).filter_by(agency_type=atype).first()
         if not existing:
             a = Agency(name=name, agency_type=atype)
             db.add(a)
@@ -52,8 +52,10 @@ def seed():
             agencies[atype] = a.id
             print(f"  Created agency: {name}")
         else:
+            if existing.name != name:
+                existing.name = name
             agencies[atype] = existing.id
-            print(f"  Already exists: {name}")
+            print(f"  Already exists: {existing.name}")
 
     # ── Seed tickets ───────────────────────────────────────────────────────────
     print("Seeding tickets...")

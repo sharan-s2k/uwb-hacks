@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import CurrentUser, get_current_user
 from app.database import get_db
 from app.tickets.models import Ticket
-from app.tickets.schemas import TicketResponse
+from app.tickets.schemas import PublicTicketResponse, TicketResponse
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -35,6 +35,33 @@ def get_my_tickets(
             assigned_agency_name=_agency_name(t, db),
             citizen_summary=t.citizen_summary or "",
             emergency_flag=t.emergency_flag,
+        )
+        for t in tickets
+    ]
+
+
+@router.get("/public", response_model=list[PublicTicketResponse])
+def get_public_tickets(
+    db: Session = Depends(get_db),
+):
+    tickets = (
+        db.query(Ticket)
+        .filter(Ticket.public_visible.is_(True))
+        .order_by(Ticket.created_at.desc())
+        .all()
+    )
+
+    return [
+        PublicTicketResponse(
+            id=str(t.id),
+            ticket_number=t.ticket_number,
+            title=t.title,
+            category=t.category,
+            severity=t.severity,
+            status=t.status,
+            assigned_agency_name=_agency_name(t, db),
+            public_summary=t.public_summary or t.citizen_summary or "",
+            created_at=t.created_at.isoformat() if t.created_at else "",
         )
         for t in tickets
     ]

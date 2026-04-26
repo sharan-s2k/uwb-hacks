@@ -4,7 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from app.config import settings
+from app.agencies.service import ensure_default_agencies
 from app.database import Base, engine
+from app.database import SessionLocal
 from app.agencies.routes import agency_list_router, agency_ops_router
 from app.reports.routes import router as reports_router
 from app.tickets.routes import router as tickets_router
@@ -27,6 +29,11 @@ app.add_middleware(
 def on_startup():
     Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        ensure_default_agencies(db)
+    finally:
+        db.close()
 
 
 @app.get("/health")

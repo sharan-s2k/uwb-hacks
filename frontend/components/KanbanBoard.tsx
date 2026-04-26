@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { fetchJsonWithFallback, patchJsonWithFallback } from "@/lib/api";
 
 const COLS = [
   { key:"ROUTED", label:"Routed", bg:"#EEF5FC", border:"#C8DEFA", dot:"#378ADD", countBg:"#B5D4F4", countColor:"#0C447C" },
@@ -31,10 +32,6 @@ const MOCK = [
   { id:"12", title:"Illegal dumping behind plaza",             category:"Illegal Dumping",  severity:"MEDIUM",   status:"ROUTED",          location_text:"Behind shopping plaza",safety_flag:false, accessibility_flag:false, emergency_flag:false, ticket_number:"CFX-0012" },
 ];
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-type FilterType = "ALL" | "HIGH" | "CRITICAL" | "safety";
-
 interface KanbanBoardProps {
   agencyName?: string;
 }
@@ -44,17 +41,19 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [usingMock, setUsingMock] = useState(false);
-  const [filter, setFilter] = useState<FilterType>("ALL");
+  const [severityFilter, setSeverityFilter] = useState<string>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [showSafetyOnly, setShowSafetyOnly] = useState(false);
+  const [showAccessibilityOnly, setShowAccessibilityOnly] = useState(false);
+  const [showEmergencyOnly, setShowEmergencyOnly] = useState(false);
 
   useEffect(() => {
     const url = agencyName
-      ? `${API_URL}/api/agency/tickets?agency_name=${encodeURIComponent(agencyName)}`
-      : `${API_URL}/api/agency/tickets`;
+      ? `/api/agency/tickets?agency_name=${encodeURIComponent(agencyName)}`
+      : "/api/agency/tickets";
 
-    fetch(url)
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(data => {
-        const list = Array.isArray(data) ? data : data.tickets ?? [];
+    fetchJsonWithFallback<any[]>(url)
+      .then(list => {
         setTickets(list.length > 0 ? list : MOCK);
         setUsingMock(list.length === 0);
         setLoading(false);
@@ -63,15 +62,32 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
   }, [agencyName]);
 
   const move = (id: string, status: string) => {
+    const previous = tickets;
     setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
     if (selected?.id === id) setSelected(null);
-    if (!usingMock) fetch(`/api/tickets/${id}/status`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ status }) });
+    if (!usingMock) {
+      patchJsonWithFallback(`/api/tickets/${id}/status`, { status })
+        .then((response) => {
+          if (!response.ok) {
+            setTickets(previous);
+          }
+        })
+        .catch(() => {
+          setTickets(previous);
+        });
+    }
   };
 
+  const categories = Array.from(
+    new Set(tickets.map((t) => t.category).filter(Boolean))
+  ).sort();
+
   const filtered = tickets.filter(t => {
-    if (filter === "HIGH") return t.severity === "HIGH";
-    if (filter === "CRITICAL") return t.severity === "CRITICAL";
-    if (filter === "safety") return t.safety_flag;
+    if (severityFilter !== "ALL" && t.severity !== severityFilter) return false;
+    if (categoryFilter !== "ALL" && t.category !== categoryFilter) return false;
+    if (showSafetyOnly && !t.safety_flag) return false;
+    if (showAccessibilityOnly && !t.accessibility_flag) return false;
+    if (showEmergencyOnly && !t.emergency_flag) return false;
     return true;
   });
 
@@ -90,9 +106,9 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
     <span style={{ fontSize:10, fontWeight:500, padding:"2px 7px", borderRadius:10, background:bg, color, letterSpacing:.2 }}>{label}</span>
   );
 
-  const filterBtnStyle = (f: FilterType) => ({
-    fontSize:12, padding:"5px 12px", borderRadius:20, border:`0.5px solid ${filter===f?"#85B7EB":"#ddd"}`,
-    background: filter===f ? "#E6F1FB" : "#fff", color: filter===f ? "#0C447C" : "#888",
+  const filterBtnStyle = (active: boolean) => ({
+    fontSize:12, padding:"5px 12px", borderRadius:20, border:`0.5px solid ${active?"#85B7EB":"#ddd"}`,
+    background: active ? "#E6F1FB" : "#fff", color: active ? "#0C447C" : "#888",
     cursor:"pointer", fontFamily:"inherit",
   });
 
@@ -137,11 +153,36 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
       {/* Toolbar */}
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
         <span style={{ fontSize:12, color:"#888", marginRight:4 }}>Filter:</span>
-        {(["ALL","HIGH","CRITICAL","safety"] as FilterType[]).map(f => (
-          <button key={f} style={filterBtnStyle(f)} onClick={() => setFilter(f)}>
-            {f === "ALL" ? "All" : f === "safety" ? "Safety flags" : f.charAt(0)+f.slice(1).toLowerCase()}
-          </button>
-        ))}
+        <select
+          value={severityFilter}
+          onChange={(e) => setSeverityFilter(e.target.value)}
+          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, border: "0.5px solid #ddd", background: "#fff", color: "#444", fontFamily: "inherit" }}
+        >
+          <option value="ALL">All severities</option>
+          <option value="LOW">Low</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="HIGH">High</option>
+          <option value="CRITICAL">Critical</option>
+        </select>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, border: "0.5px solid #ddd", background: "#fff", color: "#444", fontFamily: "inherit" }}
+        >
+          <option value="ALL">All categories</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>{category}</option>
+          ))}
+        </select>
+        <button style={filterBtnStyle(showSafetyOnly)} onClick={() => setShowSafetyOnly((v) => !v)}>
+          Safety flags
+        </button>
+        <button style={filterBtnStyle(showAccessibilityOnly)} onClick={() => setShowAccessibilityOnly((v) => !v)}>
+          Accessibility
+        </button>
+        <button style={filterBtnStyle(showEmergencyOnly)} onClick={() => setShowEmergencyOnly((v) => !v)}>
+          Emergency
+        </button>
         <div style={{ marginLeft:"auto", fontSize:11, color:"#aaa" }}>Showing {filtered.length} ticket{filtered.length!==1?"s":""}</div>
       </div>
 
