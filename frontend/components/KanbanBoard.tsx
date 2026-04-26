@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { fetchJsonWithFallback, patchJsonWithFallback } from "@/lib/api";
 import AgencyAssistant, { AssistantAction } from "./AgencyAssistant";
+import VoiceDashboardAssistant from "./VoiceDashboardAssistant";
 
 interface AgencyOption { id: string; name: string; agency_type: string; }
 
@@ -234,6 +235,14 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           {usingMock && <span style={{ fontSize:11, background:"#FAEEDA", color:"#854F0B", padding:"3px 10px", borderRadius:20, border:"0.5px solid #FAC775" }}>Demo data</span>}
+          {agencyName && (
+            <VoiceDashboardAssistant
+              agencyName={agencyName}
+              tickets={tickets}
+              agencies={agencies.map(a => a.name)}
+              onAction={handleAssistantAction}
+            />
+          )}
           {agencyName && (
             <button
               onClick={() => setSidebarOpen(v => !v)}
