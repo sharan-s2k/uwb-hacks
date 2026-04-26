@@ -75,13 +75,20 @@ class _AgencyBody(BaseModel):
     agency_name: str
 
 
+def _get_ticket(ticket_id: str, db: Session) -> Ticket:
+    try:
+        return db.query(Ticket).filter(Ticket.id == _uuid.UUID(ticket_id)).first()
+    except ValueError:
+        return db.query(Ticket).filter(Ticket.ticket_number == ticket_id).first()
+
+
 @router.patch("/{ticket_id}/status")
 def update_ticket_status(
     ticket_id: str,
     body: _StatusBody,
     db: Session = Depends(get_db),
 ):
-    ticket = db.query(Ticket).filter(Ticket.id == _uuid.UUID(ticket_id)).first()
+    ticket = _get_ticket(ticket_id, db)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     ticket.status = body.status
@@ -96,7 +103,7 @@ def reassign_ticket_agency(
     db: Session = Depends(get_db),
 ):
     from app.agencies.models import Agency
-    ticket = db.query(Ticket).filter(Ticket.id == _uuid.UUID(ticket_id)).first()
+    ticket = _get_ticket(ticket_id, db)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     agency = db.query(Agency).filter(Agency.name == body.agency_name).first()

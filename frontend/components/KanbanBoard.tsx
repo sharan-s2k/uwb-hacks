@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { fetchJsonWithFallback, patchJsonWithFallback } from "@/lib/api";
+import AgencyAssistant, { AssistantAction } from "./AgencyAssistant";
 
 interface AgencyOption { id: string; name: string; agency_type: string; }
 
@@ -71,6 +72,9 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
   const [agencies, setAgencies]               = useState<AgencyOption[]>([]);
   const [forwardingAgency, setForwardingAgency] = useState("");
 
+  // ── AI assistant sidebar ──────────────────────────────────────────────────
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   useEffect(() => {
     const url = agencyName
       ? `/api/agency/tickets?agency_name=${encodeURIComponent(agencyName)}`
@@ -104,6 +108,14 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
     if (!usingMock) ids.forEach(id => patchJsonWithFallback(`/api/tickets/${id}/agency`, { agency_name }));
     setCheckedIds(new Set());
     setForwardingAgency("");
+  };
+
+  // Handle AI assistant actions
+  const handleAssistantAction = (actions: AssistantAction[]) => {
+    actions.forEach(a => {
+      if (a.type === "move_status" && a.new_status) moveMany(a.ticket_ids, a.new_status);
+      if (a.type === "forward_department" && a.department) forwardMany(a.ticket_ids, a.department);
+    });
   };
 
   // Toggle checkbox
@@ -222,6 +234,20 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           {usingMock && <span style={{ fontSize:11, background:"#FAEEDA", color:"#854F0B", padding:"3px 10px", borderRadius:20, border:"0.5px solid #FAC775" }}>Demo data</span>}
+          {agencyName && (
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              style={{
+                fontSize:12, padding:"7px 14px", borderRadius:20,
+                border: sidebarOpen ? "1px solid #1a56db" : "0.5px solid #ddd",
+                background: sidebarOpen ? "#1a56db" : "#fff",
+                color: sidebarOpen ? "#fff" : "#444",
+                cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5, fontWeight:500,
+              }}
+            >
+              🤖 AI Assistant
+            </button>
+          )}
         </div>
       </div>
 
@@ -426,6 +452,18 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
           );
         })}
       </div>
+
+      {/* AI Assistant sidebar — always mounted to preserve chat history */}
+      {agencyName && (
+        <AgencyAssistant
+          agencyName={agencyName}
+          tickets={tickets}
+          agencies={agencies.map(a => a.name)}
+          onAction={handleAssistantAction}
+          onClose={() => setSidebarOpen(false)}
+          hidden={!sidebarOpen}
+        />
+      )}
 
       {/* Detail modal */}
       {selected && (

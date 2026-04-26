@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.agencies.models import Agency
+from app.ai.assistant import AssistantRequest, AssistantResponse, run_agency_assistant
 from app.database import get_db
 from app.tickets.models import Ticket
 from app.tickets.schemas import AgencyTicketResponse
@@ -52,6 +53,11 @@ def _build_agency_ticket(t: Ticket, db: Session) -> AgencyTicketResponse:
         safety_flag=t.safety_flag or False,
         accessibility_flag=t.accessibility_flag or False,
     )
+
+
+@agency_ops_router.post("/assistant", response_model=AssistantResponse)
+async def agency_assistant(body: AssistantRequest) -> AssistantResponse:
+    return await run_agency_assistant(body)
 
 
 @agency_ops_router.get("/tickets", response_model=list[AgencyTicketResponse])
