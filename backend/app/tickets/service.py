@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import func
@@ -21,7 +22,7 @@ def create_ticket(
     intake_payload: AITriageInput,
     triage_result: TriageCallResult,
     routing_result: RoutingResult,
-    voice_transcript: str | None = None,
+    voice_transcript: Optional[str] = None,
 ) -> Ticket:
     triage: AITriageOutput = triage_result.parsed_output
     assigned_agency_uuid = (

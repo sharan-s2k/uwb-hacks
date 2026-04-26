@@ -1,4 +1,5 @@
 import httpx
+from typing import Optional
 
 from app.ai.local_llm_client import call_local_llm
 from app.ai.prompts import build_triage_prompt
@@ -44,7 +45,7 @@ def _normalize_keys(raw: dict) -> dict:
 
 async def triage_report(payload: AITriageInput) -> TriageCallResult:
     prompt = build_triage_prompt(payload)
-    last_error: str | None = None
+    last_error: Optional[str] = None
 
     for _ in range(settings.ai_triage_retry_count + 1):
         try:

@@ -81,6 +81,7 @@ export default function VoiceReporter() {
     try {
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
+        connectionType: "webrtc",
 
         onMessage({ message, source }) {
           const role = source === "ai" ? "agent" : "user";

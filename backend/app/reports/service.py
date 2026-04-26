@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
+from typing import Optional
 
 from app.ai.schemas import AITriageInput
 from app.ai.service import extract_location_from_transcript, triage_report
@@ -35,7 +36,7 @@ async def create_manual_report(
     user: CurrentUser,
     description: str,
     location_text: str,
-    image_file: UploadFile | None,
+    image_file: Optional[UploadFile],
 ) -> ManualReportResponse:
     image_url = await save_report_image(image_file)
 
@@ -65,7 +66,7 @@ async def create_voice_report(
     db: Session,
     user: CurrentUser,
     conversation_transcript: str,
-    image_file: UploadFile | None = None,
+    image_file: Optional[UploadFile] = None,
 ) -> ManualReportResponse:
     """
     Runs the same triage → routing → ticket pipeline as the manual flow.

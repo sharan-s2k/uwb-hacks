@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, Header
@@ -14,13 +15,13 @@ class CurrentUser:
     auth0_sub: str
     email: str
     role: str
-    agency_id: UUID | None
+    agency_id: Optional[UUID]
 
 
 def get_current_user(
     db: Session = Depends(get_db),
-    x_auth0_sub: str | None = Header(default=None),
-    x_user_email: str | None = Header(default=None),
+    x_auth0_sub: Optional[str] = Header(default=None),
+    x_user_email: Optional[str] = Header(default=None),
 ) -> CurrentUser:
     auth0_sub = x_auth0_sub or "dev|citizen@example.com"
     email = x_user_email or "citizen@example.com"

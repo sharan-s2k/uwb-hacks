@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -6,4 +8,4 @@ class IntakePayload(BaseModel):
     user_id: str
     description: str
     location_text: str
-    image_url: str | None = None
+    image_url: Optional[str] = None

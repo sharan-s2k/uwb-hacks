@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.auth.dependencies import CurrentUser, get_current_user
 from app.database import get_db
@@ -12,9 +13,9 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 @router.post("/manual", response_model=ManualReportResponse)
 async def submit_manual_report(
     description: str = Form(...),
-    location: str | None = Form(default=None),
-    location_text: str | None = Form(default=None),
-    photo: UploadFile | None = File(default=None),
+    location: Optional[str] = Form(default=None),
+    location_text: Optional[str] = Form(default=None),
+    photo: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -31,7 +32,7 @@ async def submit_manual_report(
 @router.post("/voice/finalize", response_model=ManualReportResponse)
 async def finalize_voice_report(
     conversation_transcript: str = Form(...),
-    photo: UploadFile | None = File(default=None),
+    photo: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):

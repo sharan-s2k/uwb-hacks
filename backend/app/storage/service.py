@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
@@ -6,7 +7,7 @@ from fastapi import HTTPException, UploadFile
 from app.config import settings
 
 
-async def save_report_image(image_file: UploadFile | None) -> str | None:
+async def save_report_image(image_file: Optional[UploadFile]) -> Optional[str]:
     if not image_file:
         return None
 

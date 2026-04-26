@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.agencies.models import Agency
 from app.database import get_db
@@ -54,7 +55,7 @@ def _build_agency_ticket(t: Ticket, db: Session) -> AgencyTicketResponse:
 
 @agency_ops_router.get("/tickets", response_model=list[AgencyTicketResponse])
 def get_agency_tickets(
-    agency_name: str | None = Query(default=None),
+    agency_name: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ):
     query = db.query(Ticket)

@@ -1,11 +1,12 @@
 import json
+from typing import Any, Union
 
 import httpx
 
 from app.config import settings
 
 
-async def call_local_llm(prompt: str) -> dict | list | str:
+async def call_local_llm(prompt: str) -> Union[dict[str, Any], list[Any], str]:
     url = f"{settings.ollama_base_url}/api/generate"
     payload = {
         "model": settings.ollama_model,

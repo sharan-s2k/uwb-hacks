@@ -1,3 +1,5 @@
+from typing import Any, Optional, Union
+
 from pydantic import BaseModel, Field
 
 from app.enums import AgencyType, Severity, TicketCategory
@@ -6,7 +8,7 @@ from app.enums import AgencyType, Severity, TicketCategory
 class AITriageInput(BaseModel):
     description: str
     location_text: str
-    image_url: str | None = None
+    image_url: Optional[str] = None
     input_type: str = "MANUAL"
 
 
@@ -26,6 +28,6 @@ class AITriageOutput(BaseModel):
 
 
 class TriageCallResult(BaseModel):
-    raw_output: dict | list | str | None
+    raw_output: Optional[Union[dict[str, Any], list[Any], str]]
     parsed_output: AITriageOutput
-    error_message: str | None = None
+    error_message: Optional[str] = None
