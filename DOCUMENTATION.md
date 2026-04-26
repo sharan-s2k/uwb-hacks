@@ -35,25 +35,25 @@ flowchart LR
   U -->|Voice Conversation| EL[ElevenLabs Agent]
   EL -->|Transcript| FE
 
-  FE -->|/api/*| NG[Nginx Reverse Proxy]
-  NG -->|/api/*| BE[FastAPI Backend]
-  NG -->|/*| FEAPP[Next.js App Server]
+  FE -->|API routes| NG[Nginx Reverse Proxy]
+  NG -->|API routes| BE[FastAPI Backend]
+  NG -->|App routes| FEAPP[Next.js App Server]
 
   BE -->|Triage prompt + JSON parse| OL[Ollama + Gemma]
   BE -->|Read/Write| DB[(PostgreSQL)]
-  BE -->|Image save + serve| UP[/uploads]
+  BE -->|Image save + serve| UP[Uploads Path]
 
   AG[Agency Staff] --> FE
   AD[Admin] --> FE
 
-  linkStyle 0 stroke:#2563eb,stroke-width:2px,color:#1e3a8a
-  linkStyle 1 stroke:#9333ea,stroke-width:2px,color:#581c87
-  linkStyle 2 stroke:#9333ea,stroke-width:2px,color:#581c87
-  linkStyle 3 stroke:#f59e0b,stroke-width:2px,color:#78350f
-  linkStyle 4 stroke:#f59e0b,stroke-width:2px,color:#78350f
-  linkStyle 5 stroke:#16a34a,stroke-width:2px,color:#14532d
-  linkStyle 6 stroke:#0ea5e9,stroke-width:2px,color:#0c4a6e
-  linkStyle 7 stroke:#ef4444,stroke-width:2px,color:#7f1d1d
+  linkStyle 0 stroke:#2563eb,stroke-width:2px
+  linkStyle 1 stroke:#9333ea,stroke-width:2px
+  linkStyle 2 stroke:#9333ea,stroke-width:2px
+  linkStyle 3 stroke:#f59e0b,stroke-width:2px
+  linkStyle 4 stroke:#f59e0b,stroke-width:2px
+  linkStyle 5 stroke:#16a34a,stroke-width:2px
+  linkStyle 6 stroke:#0ea5e9,stroke-width:2px
+  linkStyle 7 stroke:#ef4444,stroke-width:2px
 ```
 
 ---
@@ -79,7 +79,7 @@ flowchart TB
   NGX --> NEXT
   FAST --> PG[(PostgreSQL)]
   FAST --> OLL[Ollama]
-  FAST --> UP2[/backend/uploads]
+  FAST --> UP2[Backend Upload Directory]
 
   linkStyle 0 stroke:#2563eb,stroke-width:2px
   linkStyle 1 stroke:#22c55e,stroke-width:2px
@@ -104,14 +104,14 @@ Frontend API calls optionally fallback to `localhost:8080` when running in local
 
 ```mermaid
 flowchart TD
-  RPT[reports.routes/service] --> AI[ai.service]
+  RPT[reports.routes-service] --> AI[ai.service]
   RPT --> RT[routing.service]
   RPT --> TK[tickets.service]
   RPT --> ST[storage.service]
 
   RT --> RR[routing.rules]
   TK --> TM[tickets.models]
-  AG[agencies.routes/service] --> AM[agencies.models]
+  AG[agencies.routes-service] --> AM[agencies.models]
   AU[auth.dependencies] --> US[users.models]
 
   linkStyle 0 stroke:#3b82f6,stroke-width:2px
@@ -192,7 +192,7 @@ flowchart LR
   A -->|PATCH /api/tickets/:id/status| B
   A -->|PATCH /api/tickets/:id/agency| B
   A -->|POST /api/agency/assistant| LLM[Gemma assistant planner]
-  LLM -->|actions[]| A
+  LLM -->|assistant actions| A
 
   linkStyle 0 stroke:#2563eb,stroke-width:2px
   linkStyle 1 stroke:#22c55e,stroke-width:2px
