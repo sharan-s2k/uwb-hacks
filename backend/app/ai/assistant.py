@@ -1,3 +1,4 @@
+import datetime
 import json
 from typing import Optional
 
@@ -17,6 +18,10 @@ class AssistantTicket(BaseModel):
     category: str
     severity: str
     location_text: Optional[str] = None
+    emergency_flag: bool = False
+    safety_flag: bool = False
+    accessibility_flag: bool = False
+    created_at: Optional[str] = None
 
 
 class AssistantAction(BaseModel):
@@ -41,15 +46,18 @@ class AssistantResponse(BaseModel):
 # ── Prompt ────────────────────────────────────────────────────────────────────
 
 def _build_prompt(req: AssistantRequest) -> str:
+    today = datetime.date.today().isoformat()
+
     ticket_lines = "\n".join(
-        f"  UUID:{t.id} | #{t.ticket_number} | {t.title!r} | {t.status} | {t.category}"
+        f"  UUID:{t.id} | #{t.ticket_number} | {t.title!r} | {t.status} | {t.category} | {t.severity}"
+        f" | emergency:{t.emergency_flag} | safety:{t.safety_flag} | created:{t.created_at or 'unknown'}"
         for t in req.tickets[:25]
     )
     dept_list = ", ".join(req.agencies[:20])
 
     return (
         f"You are an AI assistant for the {req.department} department. "
-        f"You help staff manage civic issue tickets.\n\n"
+        f"Today is {today}. You help staff manage and analyse civic issue tickets.\n\n"
         f"TICKETS IN THIS DEPARTMENT:\n{ticket_lines}\n\n"
         f"VALID STATUSES: ROUTED, IN_PROGRESS, NEEDS_MORE_INFO, RESOLVED\n"
         f"DEPARTMENTS YOU CAN FORWARD TO: {dept_list}\n\n"
@@ -57,13 +65,17 @@ def _build_prompt(req: AssistantRequest) -> str:
         f"Respond with a JSON object using ONLY this structure:\n"
         f'{{"message":"your reply","actions":[]}}\n\n'
         f"Each action must be one of:\n"
-        f'{{"type":"move_status","ticket_ids":["id"],"new_status":"STATUS"}}\n'
-        f'{{"type":"forward_department","ticket_ids":["id"],"department":"Name"}}\n\n'
-        f"Rules:\n"
-        f"- ticket_ids must use the UUID values (UUID:...) from the list, NOT the #ticket_number.\n"
+        f'{{"type":"move_status","ticket_ids":["<UUID from list>"],"new_status":"STATUS"}}\n'
+        f'{{"type":"forward_department","ticket_ids":["<UUID from list>"],"department":"Name"}}\n\n'
+        f"RULES:\n"
+        f"- For analytical questions return empty actions array and answer in the message field.\n"
+        f"- 'plan my day': list tickets grouped as Tier1=CRITICAL+emergency/safety, Tier2=HIGH, Tier3=rest. Show #number and title per ticket.\n"
+        f"- 'immediate attention': list tickets where severity=CRITICAL OR emergency_flag=true OR safety_flag=true. Show #number, title, severity.\n"
+        f"- 'distribution': count by category, by severity, by status.\n"
+        f"- 'long pending': list tickets in ROUTED or NEEDS_MORE_INFO, oldest first.\n"
+        f"- ticket_ids must use UUID values from the list, NOT the #ticket_number.\n"
         f"- Only use department names from the DEPARTMENTS list.\n"
         f"- Only use valid status values.\n"
-        f"- Return empty actions array if just answering a question or if unclear.\n"
         f"- Do not include text outside the JSON object."
     )
 
@@ -81,8 +93,12 @@ async def run_agency_assistant(req: AssistantRequest) -> AssistantResponse:
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
+                "options": {
+                    "num_predict": 2048,
+                    "temperature": 0.1,
+                },
             }
-            async with httpx.AsyncClient(timeout=45) as client:
+            async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
                 data = resp.json()

@@ -52,6 +52,7 @@ def _build_agency_ticket(t: Ticket, db: Session) -> AgencyTicketResponse:
         image_url=t.image_url,
         safety_flag=t.safety_flag or False,
         accessibility_flag=t.accessibility_flag or False,
+        created_at=t.created_at.isoformat() if t.created_at else None,
     )
 
 

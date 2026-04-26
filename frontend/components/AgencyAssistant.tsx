@@ -27,12 +27,16 @@ interface TicketSummary {
   category: string;
   severity: string;
   location_text?: string;
+  emergency_flag?: boolean;
+  safety_flag?: boolean;
+  accessibility_flag?: boolean;
+  created_at?: string;
 }
 
 interface Props {
   agencyName: string;
   tickets: TicketSummary[];
-  agencies: string[];           // list of department names
+  agencies: string[];
   onAction: (actions: AssistantAction[]) => void;
   onClose: () => void;
   hidden?: boolean;
@@ -46,12 +50,73 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const SUGGESTIONS = [
-  "Move all critical tickets to In Progress",
-  "Which tickets need immediate attention?",
-  "Mark all resolved tickets",
-  "Forward flooding tickets to Water Services",
-  "Show me all emergency tickets",
+  { icon: "📅", text: "Plan my day" },
+  { icon: "🚨", text: "Which issues require my immediate attention?" },
+  { icon: "📊", text: "Show distribution of issue types" },
+  { icon: "⏳", text: "List long pending issues" },
+  { icon: "⚡", text: "Move all critical tickets to In Progress" },
 ];
+
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+
+function renderMarkdown(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, li) => {
+    if (!line.trim()) {
+      return <div key={li} style={{ height: 6 }} />;
+    }
+
+    const isBullet = /^[-•*]\s/.test(line);
+    const isNumbered = /^\d+\.\s/.test(line);
+    const isHeading = /^\*\*(.+)\*\*$/.test(line.trim());
+
+    const renderInline = (raw: string) => {
+      const parts = raw.split(/(\*\*[^*]+\*\*)/g);
+      return parts.map((p, i) => {
+        const boldMatch = p.match(/^\*\*(.+)\*\*$/);
+        return boldMatch
+          ? <strong key={i} style={{ fontWeight: 600, color: "#0f172a" }}>{boldMatch[1]}</strong>
+          : <span key={i}>{p}</span>;
+      });
+    };
+
+    if (isHeading) {
+      const inner = line.trim().replace(/^\*\*|\*\*$/g, "");
+      return (
+        <div key={li} style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", marginTop: 10, marginBottom: 3, textTransform: "uppercase", letterSpacing: ".05em" }}>
+          {inner}
+        </div>
+      );
+    }
+
+    if (isBullet) {
+      const content = line.replace(/^[-•*]\s/, "");
+      return (
+        <div key={li} style={{ display: "flex", gap: 7, marginBottom: 3, alignItems: "flex-start" }}>
+          <span style={{ color: "#1a56db", flexShrink: 0, marginTop: 1, fontSize: 11 }}>•</span>
+          <span style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.55 }}>{renderInline(content)}</span>
+        </div>
+      );
+    }
+
+    if (isNumbered) {
+      const num = line.match(/^(\d+)\./)?.[1];
+      const content = line.replace(/^\d+\.\s/, "");
+      return (
+        <div key={li} style={{ display: "flex", gap: 7, marginBottom: 3, alignItems: "flex-start" }}>
+          <span style={{ color: "#1a56db", flexShrink: 0, fontWeight: 600, fontSize: 12, minWidth: 16, textAlign: "right" }}>{num}.</span>
+          <span style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.55 }}>{renderInline(content)}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div key={li} style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.55, marginBottom: 3 }}>
+        {renderInline(line)}
+      </div>
+    );
+  });
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +124,7 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      text: `Hi! I'm the AI assistant for **${agencyName}**. I can help you:\n- Move tickets between statuses\n- Forward tickets to other departments\n- Answer questions about your queue\n\nWhat would you like to do?`,
+      text: `Hi! I'm the AI assistant for **${agencyName}**. I can help you:\n- Plan your day based on ticket priorities\n- Identify issues needing immediate attention\n- Analyse the distribution of issue types\n- Surface long-pending tickets\n- Move tickets between statuses\n- Forward tickets to other departments\n\nWhat would you like to do?`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -68,8 +133,8 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!hidden) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, hidden]);
 
   async function send(text: string) {
     if (!text.trim() || busy) return;
@@ -91,6 +156,10 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
           category: t.category,
           severity: t.severity,
           location_text: t.location_text ?? null,
+          emergency_flag: t.emergency_flag ?? false,
+          safety_flag: t.safety_flag ?? false,
+          accessibility_flag: t.accessibility_flag ?? false,
+          created_at: t.created_at ?? null,
         })),
         agencies,
       };
@@ -112,11 +181,10 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
 
       setMessages(prev => [...prev.slice(0, -1), aiMsg]);
 
-      // Execute actions automatically
       if (data.actions?.length) {
         onAction(data.actions);
       }
-    } catch (err) {
+    } catch {
       setMessages(prev => [
         ...prev.slice(0, -1),
         { role: "assistant", text: "Sorry, I couldn't process that. Please try again." },
@@ -133,6 +201,8 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
       send(input);
     }
   }
+
+  const showSuggestions = !busy && messages.filter(m => m.role === "user").length < 2;
 
   return (
     <div style={{ ...s.panel, display: hidden ? "none" : "flex" }}>
@@ -159,14 +229,15 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
             ) : (
               <div style={s.aiBubble}>
                 {msg.loading ? (
-                  <span style={{ color: "#94a3b8", fontSize: 13 }}>Thinking…</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={s.spinner} />
+                    <span style={{ color: "#94a3b8", fontSize: 13 }}>Thinking…</span>
+                  </div>
                 ) : (
                   <>
-                    <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
-                      {msg.text.replace(/\*\*(.*?)\*\*/g, "$1")}
-                    </div>
+                    <div>{renderMarkdown(msg.text)}</div>
                     {msg.actions && msg.actions.length > 0 && (
-                      <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em" }}>
                           Actions taken
                         </div>
@@ -196,11 +267,17 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
         <div ref={bottomRef} />
       </div>
 
-      {/* Suggestions (show only when idle and < 3 user messages) */}
-      {!busy && messages.filter(m => m.role === "user").length < 2 && (
+      {/* Suggestions */}
+      {showSuggestions && (
         <div style={s.suggestions}>
-          {SUGGESTIONS.slice(0, 3).map((s, i) => (
-            <button key={i} style={sug} onClick={() => send(s)}>{s}</button>
+          <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>
+            Try asking
+          </div>
+          {SUGGESTIONS.map((sg, i) => (
+            <button key={i} style={sugStyle} onClick={() => send(sg.text)}>
+              <span style={{ fontSize: 13 }}>{sg.icon}</span>
+              <span>{sg.text}</span>
+            </button>
           ))}
         </div>
       )}
@@ -238,13 +315,12 @@ export default function AgencyAssistant({ agencyName, tickets, agencies, onActio
 const s: Record<string, React.CSSProperties> = {
   panel: {
     position: "fixed",
-    top: 56,          // below navbar
+    top: 56,
     right: 0,
     bottom: 0,
-    width: 360,
+    width: 380,
     background: "#fff",
     borderLeft: "1px solid #e2e8f0",
-    display: "flex",
     flexDirection: "column",
     zIndex: 30,
     boxShadow: "-4px 0 24px rgba(0,0,0,.08)",
@@ -279,7 +355,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: "9px 13px",
     fontSize: 13,
     lineHeight: 1.5,
-    marginLeft: "20%",
+    marginLeft: "15%",
     wordBreak: "break-word",
   },
   aiBubble: {
@@ -287,7 +363,7 @@ const s: Record<string, React.CSSProperties> = {
     border: "1px solid #e2e8f0",
     borderRadius: "12px 12px 12px 2px",
     padding: "10px 13px",
-    marginRight: "10%",
+    marginRight: "5%",
   },
   actionChip: {
     display: "flex",
@@ -300,11 +376,17 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     padding: "3px 8px",
   },
+  spinner: {
+    width: 14,
+    height: 14,
+    border: "2px solid #e2e8f0",
+    borderTopColor: "#1a56db",
+    borderRadius: "50%",
+    animation: "spin 0.7s linear infinite",
+    flexShrink: 0,
+  },
   suggestions: {
     padding: "0 14px 10px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 5,
     flexShrink: 0,
   },
   inputRow: {
@@ -343,14 +425,19 @@ const s: Record<string, React.CSSProperties> = {
   },
 };
 
-const sug: React.CSSProperties = {
-  fontSize: 11,
-  padding: "5px 10px",
+const sugStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+  fontSize: 12,
+  padding: "6px 10px",
   borderRadius: 8,
   border: "1px solid #e2e8f0",
-  background: "#f8fafc",
-  color: "#475569",
+  background: "#fff",
+  color: "#334155",
   cursor: "pointer",
   textAlign: "left",
   fontFamily: "inherit",
+  width: "100%",
+  marginBottom: 4,
 };

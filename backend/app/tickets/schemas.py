@@ -21,6 +21,7 @@ class AgencyTicketResponse(TicketResponse):
     image_url: Optional[str] = None
     safety_flag: bool = False
     accessibility_flag: bool = False
+    created_at: Optional[str] = None
 
 
 class PublicTicketResponse(BaseModel):
