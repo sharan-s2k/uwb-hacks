@@ -48,6 +48,7 @@ def _build_agency_ticket(t: Ticket, db: Session) -> AgencyTicketResponse:
         citizen_summary=t.citizen_summary or "",
         emergency_flag=t.emergency_flag,
         location_text=t.location_text,
+        image_url=t.image_url,
         safety_flag=t.safety_flag or False,
         accessibility_flag=t.accessibility_flag or False,
     )

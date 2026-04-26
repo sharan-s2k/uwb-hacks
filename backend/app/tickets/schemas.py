@@ -18,6 +18,7 @@ class TicketResponse(BaseModel):
 
 class AgencyTicketResponse(TicketResponse):
     location_text: Optional[str] = None
+    image_url: Optional[str] = None
     safety_flag: bool = False
     accessibility_flag: bool = False
 

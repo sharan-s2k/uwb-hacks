@@ -105,6 +105,8 @@ This starts two containers:
 | `db`       | 5432 | PostgreSQL database        |
 | `app`      | 8080 | Monolith (nginx + FastAPI + Next.js) |
 
+Uploaded images are stored under `backend/uploads` on your host and served by backend at `/uploads/<filename>`.
+
 ### 3. Open the app
 
 `http://localhost:8080`

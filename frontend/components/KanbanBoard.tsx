@@ -36,9 +36,24 @@ interface KanbanBoardProps {
   agencyName?: string;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+function resolveImageUrl(imageUrl?: string): string | null {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+  if (!imageUrl.startsWith("/")) return imageUrl;
+  if (API_URL) return `${API_URL}${imageUrl}`;
+  if (typeof window === "undefined") return imageUrl;
+  if (window.location.hostname === "localhost" && window.location.port === "3000") {
+    return `http://localhost:8000${imageUrl}`;
+  }
+  return imageUrl;
+}
+
 export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
   const [tickets, setTickets] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [usingMock, setUsingMock] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
@@ -203,7 +218,7 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {items.length === 0 && <div style={{ textAlign:"center", padding:"28px 0", fontSize:12, color:"#bbb" }}>No tickets here</div>}
                 {items.map(ticket => (
-                  <div key={ticket.id} className="kb-card" onClick={() => setSelected(ticket)}
+                  <div key={ticket.id} className="kb-card" onClick={() => { setSelected(ticket); setImageLoadError(false); }}
                     style={{ background:"#fff", border:"0.5px solid #e8e8e8", borderRadius:10, padding:12, cursor:"pointer", transition:"border-color .15s, transform .1s" }}>
                     {ticket.emergency_flag && (
                       <div style={{ background:"#FCEBEB", borderLeft:"3px solid #E24B4A", borderRadius:4, padding:"3px 8px", fontSize:10, fontWeight:500, color:"#791F1F", marginBottom:8, letterSpacing:.3 }}>
@@ -262,6 +277,24 @@ export default function KanbanBoard({ agencyName }: KanbanBoardProps) {
               <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:4 }}>Location</div>
               <div style={{ fontSize:13, color:"#1a1a1a" }}>{selected.location_text}</div>
             </div>
+
+            {selected.image_url && (
+              <div style={{ background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                <div style={{ fontSize:10, color:"#aaa", textTransform:"uppercase", letterSpacing:.5, marginBottom:6 }}>Image</div>
+                {!imageLoadError ? (
+                  <img
+                    src={resolveImageUrl(selected.image_url) || ""}
+                    alt="Reported issue"
+                    onError={() => setImageLoadError(true)}
+                    style={{ width:"100%", maxHeight:220, objectFit:"cover", borderRadius:8, border:"0.5px solid #e5e5e5", background:"#fff" }}
+                  />
+                ) : (
+                  <div style={{ fontSize:12, color:"#888" }}>
+                    Image unavailable (file may no longer exist in local uploads).
+                  </div>
+                )}
+              </div>
+            )}
 
             {(selected.safety_flag || selected.accessibility_flag || selected.emergency_flag) && (
               <div style={{ background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
