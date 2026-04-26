@@ -60,6 +60,39 @@ async def triage_report(payload: AITriageInput) -> TriageCallResult:
     return TriageCallResult(raw_output=None, parsed_output=fallback, error_message=last_error)
 
 
+_LANGUAGE_NAMES: dict[str, str] = {
+    "es": "Spanish",
+    "zh": "Chinese (Mandarin)",
+    "tl": "Tagalog",
+    "vi": "Vietnamese",
+}
+
+
+async def translate_transcript_to_english(transcript: str, language_code: str) -> str:
+    """
+    Translates a non-English conversation transcript to English using Gemma.
+    Preserves Agent:/Citizen: speaker labels. Falls back to the original on failure.
+    """
+    lang_name = _LANGUAGE_NAMES.get(language_code, language_code)
+    prompt = (
+        f"Translate the following conversation transcript from {lang_name} to English.\n"
+        "Keep the 'Agent:' and 'Citizen:' speaker labels exactly as they are.\n"
+        "Return only the translated transcript. Do not add any explanation or commentary.\n\n"
+        f"{transcript}\n\nTranslation:"
+    )
+    try:
+        url = f"{settings.ollama_base_url}/api/generate"
+        payload = {"model": settings.ollama_model, "prompt": prompt, "stream": False}
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        translated = data.get("response", "").strip()
+        return translated if translated else transcript
+    except Exception:  # noqa: BLE001
+        return transcript
+
+
 async def extract_location_from_transcript(transcript: str) -> str:
     """
     Uses Gemma to extract the location mentioned in a voice conversation transcript.

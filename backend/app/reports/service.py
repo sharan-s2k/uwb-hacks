@@ -3,7 +3,7 @@ from fastapi import UploadFile
 from typing import Optional
 
 from app.ai.schemas import AITriageInput
-from app.ai.service import extract_location_from_transcript, triage_report
+from app.ai.service import extract_location_from_transcript, triage_report, translate_transcript_to_english
 from app.auth.dependencies import CurrentUser
 from app.routing.service import route_ticket
 from app.storage.service import save_report_image
@@ -67,17 +67,25 @@ async def create_voice_report(
     user: CurrentUser,
     conversation_transcript: str,
     image_file: Optional[UploadFile] = None,
+    language: str = "en",
 ) -> ManualReportResponse:
     """
     Runs the same triage → routing → ticket pipeline as the manual flow.
-    Location is extracted from the transcript by Gemma — no manual input required.
+    Non-English transcripts are translated to English by Gemma before triage.
+    Location is extracted from the (English) transcript automatically.
+    The original-language transcript is stored on the ticket for reference.
     """
     image_url = await save_report_image(image_file)
 
-    location_text = await extract_location_from_transcript(conversation_transcript)
+    if language != "en":
+        english_transcript = await translate_transcript_to_english(conversation_transcript, language)
+    else:
+        english_transcript = conversation_transcript
+
+    location_text = await extract_location_from_transcript(english_transcript)
 
     intake_payload = AITriageInput(
-        description=conversation_transcript,
+        description=english_transcript,
         location_text=location_text,
         image_url=image_url,
         input_type="VOICE",
@@ -94,6 +102,6 @@ async def create_voice_report(
         intake_payload=intake_payload,
         triage_result=triage,
         routing_result=routing,
-        voice_transcript=conversation_transcript,
+        voice_transcript=conversation_transcript,  # store original language
     )
     return _build_ticket_response(ticket, routing)

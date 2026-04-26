@@ -32,14 +32,14 @@ async def submit_manual_report(
 @router.post("/voice/finalize", response_model=ManualReportResponse)
 async def finalize_voice_report(
     conversation_transcript: str = Form(...),
+    language: str = Form(default="en"),
     photo: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Called by the frontend after the ElevenLabs conversation ends.
-    Accepts the full conversation transcript and runs it through the same
-    Gemma triage + routing pipeline as manual reports.
+    Non-English transcripts are translated to English by Gemma before triage.
     Location is extracted from the transcript automatically by Gemma.
     """
     return await create_voice_report(
@@ -47,4 +47,5 @@ async def finalize_voice_report(
         user=user,
         conversation_transcript=conversation_transcript,
         image_file=photo,
+        language=language,
     )

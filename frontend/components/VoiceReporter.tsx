@@ -17,13 +17,73 @@ type FlowState =
   | "success"
   | "error";
 
-const AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ?? "";
+// ── Language config ────────────────────────────────────────────────────────────
+
+interface Language {
+  code: string;
+  label: string;
+  native: string;
+  flag: string;
+  agentId: string;
+}
+
+const LANGUAGES: Language[] = [
+  {
+    code: "en",
+    label: "English",
+    native: "English",
+    flag: "🇺🇸",
+    agentId: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ?? "",
+  },
+  {
+    code: "es",
+    label: "Spanish",
+    native: "Español",
+    flag: "🇪🇸",
+    agentId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID_ES ??
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ??
+      "",
+  },
+  {
+    code: "zh",
+    label: "Chinese",
+    native: "中文",
+    flag: "🇨🇳",
+    agentId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID_ZH ??
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ??
+      "",
+  },
+  {
+    code: "tl",
+    label: "Tagalog",
+    native: "Tagalog",
+    flag: "🇵🇭",
+    agentId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID_TL ??
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ??
+      "",
+  },
+  {
+    code: "vi",
+    label: "Vietnamese",
+    native: "Tiếng Việt",
+    flag: "🇻🇳",
+    agentId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID_VI ??
+      process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ??
+      "",
+  },
+];
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function VoiceReporter() {
   const [state, setState] = useState<FlowState>("idle");
+  const [selectedLang, setSelectedLang] = useState<Language>(LANGUAGES[0]);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -68,8 +128,11 @@ export default function VoiceReporter() {
   // ── Start conversation ─────────────────────────────────────────────────────
 
   const startConversation = useCallback(async () => {
-    if (!AGENT_ID) {
-      setErrorMsg("NEXT_PUBLIC_ELEVENLABS_AGENT_ID is not set. Add it to your .env file.");
+    const agentId = selectedLang.agentId;
+    if (!agentId) {
+      setErrorMsg(
+        `NEXT_PUBLIC_ELEVENLABS_AGENT_ID${selectedLang.code !== "en" ? `_${selectedLang.code.toUpperCase()}` : ""} is not configured — add it to frontend/.env.local.`
+      );
       setState("error");
       return;
     }
@@ -80,7 +143,7 @@ export default function VoiceReporter() {
 
     try {
       const conversation = await Conversation.startSession({
-        agentId: AGENT_ID,
+        agentId,
         connectionType: "webrtc",
 
         onMessage({ message, source }) {
@@ -108,7 +171,7 @@ export default function VoiceReporter() {
       setErrorMsg(err instanceof Error ? err.message : "Failed to connect to voice agent");
       setState("error");
     }
-  }, []);
+  }, [selectedLang]);
 
   // ── End conversation manually ──────────────────────────────────────────────
 
@@ -125,6 +188,7 @@ export default function VoiceReporter() {
     setState("submitting");
     const fd = new FormData();
     fd.append("conversation_transcript", buildTranscriptText());
+    fd.append("language", selectedLang.code);
     if (photo) fd.append("photo", photo);
 
     try {
@@ -153,6 +217,7 @@ export default function VoiceReporter() {
     setPhotoPreview(null);
     setResult(null);
     setErrorMsg("");
+    setSelectedLang(LANGUAGES[0]);
   }
 
   // ── Render: success ────────────────────────────────────────────────────────
@@ -201,7 +266,7 @@ export default function VoiceReporter() {
     );
   }
 
-  // ── Render: location + photo confirmation ──────────────────────────────────
+  // ── Render: photo confirmation ─────────────────────────────────────────────
 
   if (state === "location") {
     return (
@@ -209,6 +274,11 @@ export default function VoiceReporter() {
         <h2 style={s.heading}>Almost done!</h2>
         <p style={{ color: "#64748b", fontSize: 14, marginBottom: 20 }}>
           Review the conversation and optionally attach a photo before submitting.
+          {selectedLang.code !== "en" && (
+            <span style={{ display: "block", marginTop: 4, color: "#1a56db", fontWeight: 500 }}>
+              🌐 Your {selectedLang.label} transcript will be translated automatically.
+            </span>
+          )}
         </p>
 
         <div style={s.transcriptBox}>
@@ -253,10 +323,7 @@ export default function VoiceReporter() {
                 </button>
               </div>
             ) : (
-              <div
-                style={s.photoZone}
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <div style={s.photoZone} onClick={() => fileInputRef.current?.click()}>
                 <span style={{ color: "#94a3b8", fontSize: 14 }}>📷 Tap to attach a photo</span>
               </div>
             )}
@@ -287,7 +354,11 @@ export default function VoiceReporter() {
     return (
       <div style={{ ...s.card, textAlign: "center", padding: "48px 32px" }}>
         <Spinner />
-        <p style={{ color: "#64748b", marginTop: 16 }}>Routing your report…</p>
+        <p style={{ color: "#64748b", marginTop: 16 }}>
+          {selectedLang.code !== "en"
+            ? `Translating ${selectedLang.label} transcript and routing your report…`
+            : "Routing your report…"}
+        </p>
       </div>
     );
   }
@@ -297,10 +368,50 @@ export default function VoiceReporter() {
   return (
     <div style={s.card}>
       <h1 style={s.heading}>Voice Issue Report</h1>
-      <p style={{ color: "#64748b", fontSize: 14, marginBottom: 24 }}>
+      <p style={{ color: "#64748b", fontSize: 14, marginBottom: 20 }}>
         Speak naturally. Our AI agent will ask you a few questions about the issue, then route
         your report automatically.
       </p>
+
+      {/* Language picker — only shown at idle */}
+      {state === "idle" && (
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ ...s.label, marginBottom: 8 }}>🌐 Report language</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {LANGUAGES.map((lang) => {
+              const active = selectedLang.code === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  onClick={() => setSelectedLang(lang)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "7px 14px",
+                    borderRadius: 20,
+                    border: `1.5px solid ${active ? "#1a56db" : "#d1d5db"}`,
+                    background: active ? "#eff6ff" : "#fff",
+                    color: active ? "#1a56db" : "#374151",
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 400,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <span>{lang.flag}</span>
+                  <span>{lang.native}</span>
+                </button>
+              );
+            })}
+          </div>
+          {selectedLang.code !== "en" && (
+            <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+              The agent will converse in {selectedLang.label}. Your transcript will be translated to English before triage.
+            </p>
+          )}
+        </div>
+      )}
 
       <div style={s.transcriptBox}>
         {transcript.length === 0 && state === "idle" && (
@@ -310,7 +421,7 @@ export default function VoiceReporter() {
         )}
         {transcript.length === 0 && state === "connecting" && (
           <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>
-            Connecting to voice agent…
+            Connecting to {selectedLang.label} voice agent…
           </p>
         )}
         {transcript.map((e, i) => (
@@ -323,9 +434,9 @@ export default function VoiceReporter() {
         <div style={s.statusRow}>
           <PulseDot active={state === "agent_speaking"} />
           <span style={{ fontSize: 13, color: "#64748b" }}>
-            {state === "connecting" && "Connecting…"}
+            {state === "connecting" && `Connecting to ${selectedLang.label} agent…`}
             {state === "agent_speaking" && "Agent speaking — please wait"}
-            {state === "active" && "Listening — speak now"}
+            {state === "active" && `Listening — speak in ${selectedLang.label}`}
           </span>
         </div>
       )}
@@ -333,7 +444,7 @@ export default function VoiceReporter() {
       <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
         {state === "idle" && (
           <button style={s.btnPrimary} onClick={startConversation}>
-            🎙 Start Voice Report
+            {selectedLang.flag} Start Voice Report in {selectedLang.native}
           </button>
         )}
         {(state === "connecting" || state === "active" || state === "agent_speaking") && (
@@ -347,12 +458,6 @@ export default function VoiceReporter() {
           </>
         )}
       </div>
-
-      {!AGENT_ID && (
-        <p style={{ fontSize: 12, color: "#ef4444", marginTop: 12 }}>
-          ⚠️ NEXT_PUBLIC_ELEVENLABS_AGENT_ID is not configured — add it to your .env file.
-        </p>
-      )}
     </div>
   );
 }
@@ -434,15 +539,6 @@ const s: Record<string, React.CSSProperties> = {
   },
   heading: { fontSize: 24, fontWeight: 700, color: "#0f172a", marginBottom: 4 },
   label: { fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    border: "1px solid #d1d5db",
-    borderRadius: 8,
-    fontSize: 14,
-    boxSizing: "border-box",
-    outline: "none",
-  },
   photoZone: {
     border: "2px dashed #d1d5db",
     borderRadius: 8,
