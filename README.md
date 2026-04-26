@@ -2,6 +2,31 @@
 
 AI-powered civic issue reporting and routing platform. Residents report local problems (potholes, broken streetlights, flooding, etc.) via text or voice; a local Ollama-hosted Gemma model classifies and routes each report to the correct city agency automatically.
 
+## Project Story
+
+### Inspiration
+Residents often see civic issues like potholes, broken streetlights, overflowing trash, flooding, or unsafe sidewalks, but they may not know which government department to contact. CivicFix is built to make reporting simple: describe the issue once, and let the system collect the right details, structure the report, and route it.
+
+### What It Does
+CivicFix lets residents report civic issues through either a form or a multilingual voice agent. The ElevenLabs voice agent asks follow-up questions in the user’s chosen language and captures report context. A locally hosted Gemma model then analyzes the report, classifies the issue, estimates severity, and creates a structured ticket. Tickets can be assigned, moved, and forwarded between departments when ownership overlaps.
+
+### How We Built It
+We built CivicFix as a web app with a resident reporting flow, a voice-reporting flow, a ticket system, and agency dashboards. ElevenLabs powers voice intake, while Gemma (through Ollama) structures raw reports into ticket data. The dashboard supports operational workflows such as viewing, updating, moving, and coordinating ticket handling across departments.
+
+### Challenges We Ran Into
+One major challenge was adapting our original architecture goals as implementation progressed. We initially planned deeper authentication and routing layers, but prioritized working end-to-end flows first: AI ticket generation, multilingual voice intake, and department coordination. Another challenge was balancing resident-friendly reporting with operationally useful ticket detail for agencies.
+
+### Accomplishments We’re Proud Of
+We’re proud CivicFix became more than a basic complaint form. It now supports multilingual voice reporting, locally hosted AI processing, structured ticket generation, and cross-department coordination workflows including reassignment and assistant-driven operations.
+
+### What We Learned
+We learned civic reporting is not just about collecting complaints. The harder technical problem is collecting the right context, formatting it consistently, and routing it quickly to the right operational team. We also learned voice-first flows significantly improve accessibility and inclusion for diverse communities.
+
+### What’s Next for CivicFix
+Next steps include adding more roles (especially field workers), richer status tracking, map-based issue views, duplicate issue detection, stronger notification workflows, real government integrations, and deeper analytics for workload, response time, and service outcomes.
+
+---
+
 ## Architecture
 
 ### Monolith image (Docker / Digital Ocean)
