@@ -74,6 +74,8 @@ export default function VoiceDashboardAssistant({ agencyName, tickets, agencies,
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
+      // The current @11labs/client typings do not expose onToolCall yet,
+      // but runtime supports it for agent tool callbacks.
       const conv = await Conversation.startSession({
         agentId: AGENT_ID,
         connectionType: "webrtc",
@@ -154,6 +156,8 @@ export default function VoiceDashboardAssistant({ agencyName, tickets, agencies,
           convRef.current = null;
         },
         onError: () => stop(),
+      } as Parameters<typeof Conversation.startSession>[0] & {
+        onToolCall?: (args: { tool_name: string; parameters: Record<string, unknown> }) => Promise<Record<string, unknown>>;
       });
 
       convRef.current = conv;
